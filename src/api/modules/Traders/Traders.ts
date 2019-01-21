@@ -1,6 +1,6 @@
 import * as Boom from 'boom';
 import { logger } from '../../../logger';
-import { TraderConfig, Trader } from '../../../_core/Trader/Trader';
+import { TraderConfig, Trader, Status } from '../../../_core/Trader/Trader';
 import { TraderModel } from '../../../_core/Trader/model';
 import { Request } from 'hapi';
 import { success } from '../../helpers';
@@ -41,13 +41,14 @@ export class Traders {
       trader
         .start()
         .then(async () => {
-          await trader.stop();
-          const runningIdx = Traders.runningTraders.map(t => t.config.name).indexOf(trader.config.name);
-          Traders.runningTraders.splice(runningIdx, 1);
+          if (trader.status !== Status.STOP) await trader.stop();
+          Traders.removeRunnningTrader(trader);
           logger.info(`[API] trader ${traderConfig.name} finish running`);
         })
-        .catch(error => {
-          throw error;
+        .catch(async error => {
+          logger.error(error);
+          await trader.stop();
+          Traders.removeRunnningTrader(trader);
         });
       Traders.runningTraders.push(trader);
       return success();
@@ -73,5 +74,10 @@ export class Traders {
       logger.error(error);
       throw Boom.internal(error);
     }
+  }
+
+  private static removeRunnningTrader(trader: Trader): void {
+    const runningIdx = Traders.runningTraders.map(t => t.config.name).indexOf(trader.config.name);
+    if (runningIdx !== -1) Traders.runningTraders.splice(runningIdx, 1);
   }
 }

@@ -26,7 +26,7 @@ export interface TraderConfig {
   };
 }
 
-enum Status {
+export enum Status {
   RUNNING = 'RUNNING',
   STOP = 'STOP',
   ERROR = 'ERROR',
@@ -35,6 +35,7 @@ enum Status {
 export class Trader {
   public env: Env;
   public portfolio: Portfolio;
+  public status: Status;
   public strategy: (candleSet: CandleSet, trader: Trader) => Promise<string>;
   public afterStrategy: (candleSet: CandleSet | undefined, trader: Trader, error?: boolean) => Promise<void>;
   private influx: Influx;
@@ -43,7 +44,6 @@ export class Trader {
   private isBacktesting: boolean;
   private currentOrder: Order | undefined;
   private shouldStop: boolean = false;
-  private status: Status;
   // Buffer for writing candles data (with indicators) to influxDB
   private bufferInputs: any[] = [];
   private lastBufferFlush: moment.Moment = moment();
@@ -118,18 +118,14 @@ export class Trader {
           time: lastCandle.time,
           values: flatten(lastCandle.indicators),
         });
-        // Update portfolio with new candle (and last action taken)
-        // this.portfolio.update(lastCandle);
-        // persist influx/mongodb
+        // Update portfolio with new candle
         await this.portfolio.save(lastCandle);
+        // Persist inputs to influx
         await this.flushInputs();
+
         // Run strategy
-        // console.timeEnd('begin');
-        // console.time('strategy');
         const advice = await this.strategy(candleSet as CandleSet, this);
-        // console.timeEnd('strategy');
         // Check if advice is correct (cant buy more than one order at a time)
-        // console.time('adviceprocessing');
         const error = this.checkAdvice(advice);
         // Process advice (if error => wait)
         if (!error) {
@@ -142,25 +138,22 @@ export class Trader {
           // WAIT
           logger.info(error);
         }
-        // console.timeEnd('adviceprocessing');
 
-        // console.time('nextStep');
-        // Next step
+        // Get next step
         data = await fetcher.next();
-        // console.timeEnd('nextStep');
-
         // Set new candleSet, lastCandle
-        // console.time('afterStart');
         if (data.value) {
           candleSet = <CandleSet>data.value;
           lastCandle = <Candle>candleSet.getLast(this.symbol);
         } else candleSet = undefined;
+
         // If after strategy callback (usefull for RL algorithm => new state provided)
         if (this.afterStrategy) await this.afterStrategy(candleSet, this, error ? true : false);
-        // console.timeEnd('afterStart');
       }
+
       // afterStrategy called with candleSet undefined (== FINISHED)
       if (this.afterStrategy) await this.afterStrategy(undefined, this);
+
       // Flush buffer (write it to influx)
       await this.flushInputs(true);
       await this.portfolio.flush(true);
