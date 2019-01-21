@@ -59,8 +59,10 @@ export class Env {
     try {
       if (this.conf.backtest) {
         const { start, stop } = this.conf.backtest;
+        // tslint:disable-next-line
         yield* await this.backtest(start, stop);
       } else {
+        // tslint:disable-next-line
         yield* await this.streaming();
       }
     } catch (error) {

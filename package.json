@@ -6,6 +6,7 @@
   "scripts": {
     "prettier": "prettier --write 'src/**/*.ts'",
     "pretest": "node_modules/tslint/bin/tslint --project .",
+    "test": "echo \"TEST TODO\"",
     "start": "NODE_OPTIONS=\"--max_old_space_size=4096\" ts-node --files -P ./tsconfig.json ./src/index.ts"
   },
   "author": "",

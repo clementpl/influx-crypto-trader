@@ -26,6 +26,6 @@
     }
   },
   "linterOptions": {
-    "exclude": ["test/**/*.ts", "./**/*.json"]
+    "exclude": ["test/**/*.ts", "strategies/**/*.ts", "./**/*.json"]
   }
 }
