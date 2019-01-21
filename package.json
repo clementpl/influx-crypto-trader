@@ -1,0 +1,48 @@
+{
+  "name": "influx-crypto-trader",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "prettier": "prettier --write 'src/**/*.ts'",
+    "pretest": "node_modules/tslint/bin/tslint --project .",
+    "start": "NODE_OPTIONS=\"--max_old_space_size=4096\" ts-node --files -P ./tsconfig.json ./src/index.ts"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@tensorflow/tfjs-node": "^0.2.3",
+    "@tensorflow/tfjs-node-gpu": "^0.2.3",
+    "boom": "^7.3.0",
+    "ccxt": "^1.18.2",
+    "death": "^1.1.0",
+    "hapi": "^17.8.1",
+    "inert": "^5.1.2",
+    "influx": "^5.0.7",
+    "joi": "^14.3.0",
+    "lout": "^11.1.0",
+    "mathjs": "^5.2.3",
+    "moment": "^2.22.2",
+    "moment-random": "^1.0.4",
+    "mongoose": "^5.3.15",
+    "neataptic": "^1.4.7",
+    "reimprovejs": "0.0.2",
+    "scale-number": "0.0.4",
+    "slayer": "^1.0.1",
+    "technicalindicators": "^1.1.13",
+    "vision": "^5.4.3",
+    "winston": "^3.1.0"
+  },
+  "devDependencies": {
+    "@types/hapi": "^17.8.0",
+    "@types/joi": "^14.0.0",
+    "@types/mathjs": "^4.4.4",
+    "@types/mongoose": "^5.3.4",
+    "@types/node": "^10.12.12",
+    "ts-node": "^7.0.1",
+    "tslint": "^5.11.0",
+    "tslint-config-prettier": "^1.16.0",
+    "tslint-config-standard": "^8.0.1",
+    "typescript": "^3.2.2"
+  }
+}

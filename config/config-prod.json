@@ -1,0 +1,22 @@
+{
+  "log": {
+    "logPath": "./log/{time}-crypto-watcher.log",
+    "errorPath": "./log/{time}-crypto-watcher-error.log"
+  },
+  "influx": {
+    "host": "localhost",
+    "port": 8086,
+    "stockDatabase": "prod_crypto_series",
+    "eventDatabase": "prod_crypto_signals",
+    "portfolioDatabase": "prod_crypto_portfolio"
+  },
+  "mongo": {
+    "host": "localhost",
+    "port": 27017,
+    "database": "prod-influx-crypto"
+  },
+  "api": {
+    "host": "localhost",
+    "port": 3003
+  }
+}

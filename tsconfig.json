@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "typeRoots": ["./node_modules/@types", "./src/types"],
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "target": "es2018",
+    "lib": ["esnext", "dom"],
+    "baseUrl": ".",
+    "outDir": "dist",
+    "paths": {
+      "*": ["./src/*"]
+    },
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "sourceMap": true,
+    "resolveJsonModule": true
+  },
+  "include": ["src/**/*", "config/config.ts", "strategies/**/*.ts", "test/**/*.ts"],
+  "exclude": ["./node_modules"]
+}

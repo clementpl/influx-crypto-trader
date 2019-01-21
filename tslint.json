@@ -1,0 +1,31 @@
+{
+  "defaultSeverity": "error",
+  "extends": ["tslint:recommended", "tslint-config-standard", "tslint-config-prettier"],
+  "rules": {
+    "max-line-length": {
+      "options": [120]
+    },
+    "new-parens": true,
+    "no-arg": true,
+    "no-bitwise": true,
+    "no-conditional-assignment": true,
+    "no-consecutive-blank-lines": false,
+    "no-angle-bracket-type-assertion": false,
+    "object-literal-sort-keys": false,
+    "interface-name": false,
+    "ordered-imports": false,
+    "await-promise": [true, "DocumentQuery"],
+    "no-console": {
+      "severity": "warning",
+      "options": ["debug", "info", "log", "time", "timeEnd", "trace"]
+    }
+  },
+  "jsRules": {
+    "max-line-length": {
+      "options": [120]
+    }
+  },
+  "linterOptions": {
+    "exclude": ["test/**/*.ts", "./**/*.json"]
+  }
+}

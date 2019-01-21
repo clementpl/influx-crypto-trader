@@ -1,0 +1,22 @@
+{
+  "log": {
+    "logPath": "./log/{time}-dev-crypto-trader.log",
+    "errorPath": "./log/{time}-dev-crypto-trader-error.log"
+  },
+  "influx": {
+    "host": "localhost",
+    "port": 8086,
+    "stockDatabase": "dev_crypto_series",
+    "eventDatabase": "dev_crypto_signals",
+    "traderDatabase": "dev_crypto_trader"
+  },
+  "mongo": {
+    "host": "localhost",
+    "port": 27017,
+    "database": "dev-influx-crypto"
+  },
+  "api": {
+    "host": "localhost",
+    "port": 3004
+  }
+}
