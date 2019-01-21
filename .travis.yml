@@ -1,0 +1,18 @@
+language: node_js
+sudo: false
+node_js:
+  - 10
+
+#services:
+#  - docker
+
+#before_install:
+#  - npm run docker-start
+
+install:
+  - npm install
+#script:
+#  - npm test
+
+#after_success:
+#  - npm run coverage
