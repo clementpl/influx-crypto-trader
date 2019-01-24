@@ -1,13 +1,16 @@
+export function requireUncached(module: string) {
+  delete require.cache[require.resolve(module)];
+  return require(module);
+}
+
 export function sleep(ms: number): Promise<{}> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 /**
- * PRIVATE
  * Flatten a deep object into a one level object with it’s path as key
  *
  * @param  {object} object - The object to be flattened
- *
  * @return {object}        - The resulting flat object
  */
 export function flatten(object: any) {

@@ -8,7 +8,7 @@ import { Portfolio } from './Portfolio/Portfolio';
 import { TraderModel } from './model';
 import { Influx } from '../Influx/Influx';
 import { MEASUREMENT_INPUTS } from '../Influx/constants';
-import { flatten } from '../helpers';
+import { flatten, requireUncached } from '../helpers';
 
 export interface TraderConfig {
   name: string;
@@ -78,9 +78,10 @@ export class Trader {
         backtest: this.config.env.backtest ? true : false,
       });
       await this.portfolio.init(this.influx);
-      // Load strategy function (if not already override cf: training)
+      // If strategy not already override (overriding strategy => usefull for RL training)
       if (!this.strategy) {
-        this.strategy = require(`${process.cwd()}/strategies/${this.config.strategie}`).default;
+        // Reload strategy module
+        this.strategy = requireUncached(`${process.cwd()}/strategies/${this.config.strategie}`).default;
       }
     } catch (error) {
       logger.error(error);
