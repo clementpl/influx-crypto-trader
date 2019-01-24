@@ -4,6 +4,7 @@ import { TraderConfig, Trader, Status } from '../../../_core/Trader/Trader';
 import { TraderModel } from '../../../_core/Trader/model';
 import { Request } from 'hapi';
 import { success } from '../../helpers';
+import { existsSync } from 'fs';
 
 export class Traders {
   public static runningTraders: Trader[] = [];
@@ -35,6 +36,11 @@ export class Traders {
   public static async createTrader(request: Request): Promise<any> {
     try {
       const traderConfig = <TraderConfig>request.payload;
+      const strategiePath = `${process.cwd()}/strategies/${traderConfig.strategie}`;
+      // if path not exist or try going outside strategie
+      if (!existsSync(strategiePath)) {
+        return Boom.badRequest(`Strategy file not found at: ${strategiePath}`);
+      }
       const trader = new Trader(traderConfig);
       await trader.init();
       // Start trader (stop and delete it when finish running (backtest mode))
