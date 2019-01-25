@@ -93,6 +93,7 @@ export class Trader {
   public async stop(): Promise<void> {
     this.status = Status.STOP;
     this.shouldStop = true;
+    this.env.stop();
     await this.portfolio.flush(true);
     await this.save();
     logger.info(`[TRADER] Trader ${this.config.name} stopped`);

@@ -92,10 +92,10 @@ export class Env {
    * Run the environnement in streaming mode
    *
    * @private
-   * @param {number} [refresh=20]
+   * @param {number} [refresh=10]
    * @memberof Env
    */
-  private async *streaming(refresh: number = 20) {
+  private async *streaming(refresh: number = 10) {
     try {
       // Load Warmup
       await this.loadWarmup(moment(), <any>this.conf.warmup);
