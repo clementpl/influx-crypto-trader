@@ -1,4 +1,5 @@
 import { OHLCV } from '../Influx/Influx';
+import { requireUncached } from '../helpers';
 
 /**
  * Candle interface, represent a candlestick
@@ -42,7 +43,7 @@ export class CandleSet {
   constructor(public config: CandleSetConfig) {
     // Attach plugins
     this.plugins = config.indicators.map(({ label, opts }) =>
-      require(`../../indicators/${opts.name}`).default(label, opts)
+      requireUncached(`${__dirname}/../../indicators/${opts.name}`).default(label, opts)
     );
   }
 
