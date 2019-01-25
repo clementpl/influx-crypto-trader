@@ -74,7 +74,15 @@ curl --request POST \
 }'
 ```
 
-Then go to grafana (http://localhost:3001/), import the dashboard given in "grafana/dashboard/cypto-trader.json" and watch your strategy (you can easily customize the dashboard to fit your need)
+Then go to grafana (http://localhost:3001/):
+
+- Configure data source
+
+![datasource](/grafana/data-source-conf-example.png)
+
+- import the dashboard given in "grafana/dashboard/cypto-trader.json" and watch your portfolio history, buy/sell
+
+You can easily customize the dashboard to fit your need
 
 ![dashboard](/grafana/dashboard/crypto-trader.png)
 
