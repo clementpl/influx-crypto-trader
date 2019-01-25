@@ -18,6 +18,7 @@ const traderPayload: any = {
       start: Joi.string().required(),
       stop: Joi.string().required(),
     },
+    candleSetPlugins: Joi.array(),
   },
   exchange: {
     name: Joi.string().required(),

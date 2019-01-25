@@ -115,10 +115,12 @@ export class Trader {
         // console.time('begin');
         this.checkTrader();
         // Push indicators to bufferInputs (will write it to influx)
-        this.bufferInputs.push({
-          time: lastCandle.time,
-          values: flatten(lastCandle.indicators),
-        });
+        if (Object.keys(lastCandle.indicators).length > 0) {
+          this.bufferInputs.push({
+            time: lastCandle.time,
+            values: flatten(lastCandle.indicators),
+          });
+        }
         // Update portfolio with new candle
         await this.portfolio.save(lastCandle);
         // Persist inputs to influx
@@ -271,8 +273,8 @@ export class Trader {
 
   private async flushInputs(force: boolean = false): Promise<void> {
     try {
-      // If more than 5 second since last save
-      if (force || Math.abs(moment().diff(this.lastBufferFlush, 's')) > 5) {
+      // If data to write and more than 5 second since last save (or force=true)
+      if (this.bufferInputs.length > 0 && (force || Math.abs(moment().diff(this.lastBufferFlush, 's')) > 5)) {
         await this.influx.writeData({ name: this.config.name }, this.bufferInputs, MEASUREMENT_INPUTS);
         await this.influx.writeData({ name: this.config.name }, this.bufferInputs, MEASUREMENT_INPUTS);
         this.bufferInputs = [];

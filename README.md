@@ -22,7 +22,7 @@ Start api
 
 `npm start`
 
-Create your first trader (binance, BTC/USDT) using the strategy example.ts.
+Create your first trader (binance, BTC/USDT) using the strategy example.ts and 2 indicators (sma6h and it's variation on 1h)
 
 ```
 curl --request POST \
@@ -36,6 +36,9 @@ curl --request POST \
       "percentInvest": 0.25,
       "base": "BTC",
       "quote": "USDT",
+      "exchange": {
+        "name": "binance"
+      },
       "env": {
         "watchList": [
             {"base": "BTC",
@@ -48,11 +51,26 @@ curl --request POST \
         "backtest": {
             "start": "2018-02-15 00:00:00",
             "stop": "2018-09-15 00:00:00"
-        }
-    },
-    "exchange": {
-        "name": "binance"
-    }
+        },
+    	"candleSetPlugins": [
+		  {
+	  		"label": "sma6h",
+  			"opts": {
+				  "name": "sma",
+			  	"period": 360,
+			 		"key": "close"
+		  	}
+	  	}
+		  {
+	  		"label": "var1hsma6h",
+  			"opts": {
+				  "name": "diff",
+			  	"period": 60,
+			 		"key": "indicators.sma6h"
+		  	}
+	  	}
+      ]
+  }
 }'
 ```
 
@@ -87,7 +105,110 @@ export default async function yourStrategy(candleSet: CandleSet, trader: Trader)
   }
   return ''; // wait can be any string ('' || 'wait' || ...)
 }
+```
 
+## Indicators
+
+The environment connect to influxdb to fetch candle and then process it at each timestep. The environment is plug with a CandleSet class which handle managing the candles data (buffer, computing indicators, etc...)
+
+We can easily map indicators to the candleSet when configuring an environment. A candleSetPlugin is define as:
+
+```
+{
+  "label": "sma6h", // name of the indicator (any string)
+  "opts": { // indicator opts
+	  "name": "sma", // indicator name (cf: src/indicators)
+		"period": 360, // sma period 360 minutes
+		"key": "close" // sma on which key (open/high/low/close/volume)
+	}
+}
+```
+
+In the following example we define an environment with 2 indicators sma6h and var1hsma6h.
+
+Be carrefull of the plugin order when using indicator in another indicator. (here first sma then diff)
+
+```
+      "env": {
+        "watchList": [
+            {"base": "BTC",
+            "quote": "USDT",
+            "exchange": "binance"
+            }],
+        "warmup": 1500,
+        "batchSize": 1000,
+        "bufferSize": 5000,
+        "backtest": {
+            "start": "2018-02-15 00:00:00",
+            "stop": "2018-09-15 00:00:00"
+        },
+    	"candleSetPlugins": [
+		  {
+	  		"label": "sma6h",
+  			"opts": {
+				  "name": "sma",
+			  	"period": 360,
+			 		"key": "close"
+		  	}
+	  	}
+		  {
+	  		"label": "var1hsma6h",
+  			"opts": {
+				  "name": "diff",
+			  	"period": 60,
+			 		"key": "indicators.sma6h"
+		  	}
+	  	}
+      ]
+  }
+```
+
+You can easily create new indicators in src/indicators
+(the filename is use as indicator name).
+
+```
+type CandleIndicator = (label: string, opts: any) => CandleSetPlugin;
+
+type CandleSetPlugin = (candles: Candle[], newCandle: Candle) => Promise<{ [name: string]: any }>;
+```
+
+Example:
+
+Create a new file => src/indicators/myindicator
+
+Then you must export a CandleIndicator.
+
+This indicator is dividing the given key by the given factor
+
+```
+import { Candle } from '../_core/Env/CandleSet';
+import { CandleIndicator } from './CandleIndicator';
+
+const myindicator: CandleIndicator = (label: string, opts: any) => {
+  // indicators static variables
+  const scope = {};
+
+  // Process function
+  // This function is called with each new candle
+  return async (candles: Candle[], newCandle: Candle) => {
+    return { [label]:  newCandle[opts.key] / opts.factor};
+  };
+};
+
+export default myindicator;
+```
+
+Then you can use it when configuring environment (here divide close by 2 and name it lalala)
+
+```
+{
+	"label": "lalala",
+	"opts": {
+	  "name": "myindicator",
+    "key": "close"
+  	"factor": 2,
+ 	}
+}
 ```
 
 ## API
@@ -100,28 +221,44 @@ The software let you deploy trader which will run in a live/simulation or backte
 
 ```
 {
+      // Trader configuration
       "name": "backtest", // trader name
       "test": true, // if true => simulation
       "strategie": "MACD", // name of the strategy to use (see ./strategies folder), you can also test MACD
-      "capital": 1000,
-      "percentInvest": 0.25,
+      "capital": 1000, // quote capital (here USDT)
+      "percentInvest": 0.25, // percent invest per trader 25%
       "base": "BTC",
       "quote": "USDT",
+      "exchange": {
+        "name": "binance",
+        // apiKeys... Not fully implemented yet
+      }
+
+      // Environment configuration
       "env": {
+          // Currency to watch (Not tested with multiples yet)
 	  "watchList": [
 		{ "base": "BTC", "quote": "USDT", "exchange": "binance" }
 	  ],
-	  "warmup": 1500,
-	  "batchSize": 1000,
-	  "bufferSize": 5000,
+	  "warmup": 1500, // How many cadle to fetch before start date
+	  "batchSize": 1000, // Batch size when fetching data
+	  "bufferSize": 5000, // candleSet buffer size (here history of 5000 candles)
+          // backtest configuration (start/stop date)
 	  "backtest": {
-          "start": "2018-02-15 00:00:00",
-      	  "stop": "2018-09-15 00:00:00"
+            "start": "2018-02-15 00:00:00",
+        	  "stop": "2018-09-15 00:00:00"
 	  }
-    },
-    "exchange": {
-      "name": "binance",
-      // apiKey... TO TEST in live
+          // Plugins indicator
+          "candleSetPlugins": [
+		  {
+	  		"label": "sma6h",
+  			"opts": {
+		          "name": "sma", // indicator name (see src/indicators)
+                          "period": 360,
+                          "key": "close"
+		  	}
+	  	}
+          ]
     }
 }
 ```

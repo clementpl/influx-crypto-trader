@@ -7,6 +7,14 @@ export function sleep(ms: number): Promise<{}> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+export function deepFind(obj: any, path: string) {
+  const pathSplit = path.split('.');
+  for (const p of pathSplit) {
+    obj = obj[p];
+  }
+  return obj;
+}
+
 /**
  * Flatten a deep object into a one level object with it’s path as key
  *
@@ -14,6 +22,7 @@ export function sleep(ms: number): Promise<{}> {
  * @return {object}        - The resulting flat object
  */
 export function flatten(object: any) {
+  if (!object) return {};
   return Object.assign(
     {},
     ...(function _flatten(objectBit, path = ''): any {

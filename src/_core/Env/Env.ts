@@ -14,6 +14,7 @@ export interface EnvConfig {
     start: string;
     stop: string;
   };
+  candleSetPlugins?: Array<{ label: string; opts: { [name: string]: string } }>;
 }
 
 export class Env {
@@ -37,8 +38,10 @@ export class Env {
   constructor(public conf: EnvConfig) {
     this.conf.batchSize = this.conf.batchSize || 500;
     this.conf.warmup = this.conf.warmup || 500;
-    this.conf.bufferSize = this.conf.bufferSize || 5000;
-    this.candleSet = new CandleSet(this.conf.bufferSize);
+    this.candleSet = new CandleSet({
+      bufferSize: conf.bufferSize || 5000,
+      indicators: conf.candleSetPlugins || [],
+    });
   }
 
   public async init(): Promise<Influx> {
