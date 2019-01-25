@@ -53,22 +53,22 @@ curl --request POST \
             "stop": "2018-09-15 00:00:00"
         },
     	"candleSetPlugins": [
-		  {
-	  		"label": "sma6h",
-  			"opts": {
-				  "name": "sma",
-			  	"period": 360,
-			 		"key": "close"
-		  	}
-	  	}
-		  {
-	  		"label": "var1hsma6h",
-  			"opts": {
-				  "name": "diff",
-			  	"period": 60,
-			 		"key": "indicators.sma6h"
-		  	}
-	  	}
+        {
+          "label": "sma6h",
+          "opts": {
+            "name": "sma",
+            "period": 360,
+            "key": "close"
+          }
+        },
+        {
+          "label": "var1hsma6h",
+          "opts": {
+            "name": "diff",
+            "period": 60,
+            "key": "indicators.sma6h"
+          }
+        }
       ]
   }
 }'
