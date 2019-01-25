@@ -6,7 +6,7 @@ import { logger } from '../../logger';
 import { sleep } from '../helpers';
 
 export interface EnvConfig {
-  watchList: OHLCVTags[]; // Default aggTime = '1m'
+  watchList: OHLCVTags[]; // List of currency to watch, base/quote/exchange
   batchSize?: number; // Number of candle Fetch every request
   bufferSize?: number; // CandleSet bufferSize
   warmup?: number; // warmup candles (number of previous candle to fetch)
@@ -14,6 +14,11 @@ export interface EnvConfig {
     start: string;
     stop: string;
   };
+  // Array with candle aggregated timeserie to build when making candleSet
+  // ['15m', 1h', '2h'] will aggregate 3 candle serie (15min, 1hour, 2hour) on top of the minute based serie
+  // At each minutes you receive the updated candle (time didn't change but value does)
+  aggTimes: string[];
+  // Indicator plugins
   candleSetPlugins?: Array<{ label: string; opts: { [name: string]: string } }>;
 }
 
@@ -36,11 +41,12 @@ export class Env {
   private shouldStop: boolean;
 
   constructor(public conf: EnvConfig) {
-    this.conf.batchSize = this.conf.batchSize || 500;
-    this.conf.warmup = this.conf.warmup || 500;
+    this.conf.batchSize = this.conf.batchSize || 1000;
+    this.conf.warmup = this.conf.warmup || 1000;
     this.candleSet = new CandleSet({
       bufferSize: conf.bufferSize || 5000,
       indicators: conf.candleSetPlugins || [],
+      aggTimes: conf.aggTimes || [],
     });
   }
 
@@ -115,7 +121,7 @@ export class Env {
             hasUpdate = true;
           }
         }
-        // Yield only in new data detected
+        // Yield only if new data detected
         if (hasUpdate) {
           yield this.candleSet;
         }
@@ -199,20 +205,22 @@ export class Env {
    */
   private async loadWarmup(start: string | moment.Moment, warmup: number): Promise<void> {
     start = moment(start);
+    const batchSize = this.conf.batchSize as number;
     try {
       for (const tags of this.conf.watchList) {
-        const batchSize = 1000;
+        // copy warmup (enable warmup for each currency)
+        let warm = warmup;
         // start fetching data (by batch of 1000)
-        const since = start.subtract(warmup, 'm');
-        while (warmup > 0) {
+        const since = start.subtract(warm, 'm');
+        while (warm > 0) {
           // fetch data
           const ret = await this.influx.getOHLC(tags, {
             aggregatedTime: '1m',
-            limit: warmup > batchSize ? batchSize : warmup,
+            limit: warm > batchSize ? batchSize : warm,
             since: since.utc().format(),
           });
           await this.candleSet.push(ret, Env.makeSymbol(tags));
-          warmup -= batchSize;
+          warm -= batchSize;
           since.add(batchSize, 'm');
         }
       }

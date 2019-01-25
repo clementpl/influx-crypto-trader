@@ -1,6 +1,6 @@
 import { wma as wmaTI } from 'technicalindicators';
-import { Candle } from '_core/Env/CandleSet';
-import { CandleIndicator } from 'indicators/CandleIndicator';
+import { Candle } from '_core/Env/Candle';
+import { CandleIndicator } from './CandleIndicator';
 
 interface WMAConfig {
   period: number;

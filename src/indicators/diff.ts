@@ -1,5 +1,5 @@
 import { ema as emaTI } from 'technicalindicators';
-import { Candle } from '_core/Env/CandleSet';
+import { Candle } from '_core/Env/Candle';
 import { CandleIndicator } from 'indicators/CandleIndicator';
 import { deepFind } from '../_core/helpers';
 

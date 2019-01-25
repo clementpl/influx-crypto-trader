@@ -1,5 +1,5 @@
 import * as ccxt from 'ccxt';
-import { Candle } from '../../Env/CandleSet';
+import { Candle } from '../../Env/Candle';
 
 export interface ExchangeConfig {
   name: string;

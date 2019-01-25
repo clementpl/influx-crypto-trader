@@ -45,6 +45,7 @@ curl --request POST \
             "quote": "USDT",
             "exchange": "binance"
             }],
+        "aggTimes": ["15m", "1h", "1d"],
         "warmup": 1500,
         "batchSize": 1000,
         "bufferSize": 5000,
@@ -99,7 +100,13 @@ The function is called with the candleSet (stock market data) and the trader (or
 ```
 export default async function yourStrategy(candleSet: CandleSet, trader: Trader): Promise<string> {
   const lastCandle = candleSet.getLast('binance:BTC:USDT', 10) as Candle[]; // retrieve 10 last candle BTC/USDT on binance
+  const lastCandle1 = candleSet.getLast('binance:BTC:USDT:15m', 10) as Candle[]; // retrieve 10 last candle agg on 15 minutes BTC/USDT on binance
+  const lastCandle2 = candleSet.getLast('binance:ETH:USDT:15m', 10) as Candle[]; // retrieve 10 last candle agg on 15 minutes ETH/USDT on binance
+
   console.log(lastCandle);
+  console.log(lastCandle1);
+  console.log(lastCandle2);
+
   const rand = Math.floor(Math.random() * 100);
   // BUY
   if (rand === 1 && nbOrder === 0) {
@@ -138,11 +145,11 @@ Be carrefull of the plugin order when using indicator in another indicator. (her
 
 ```
       "env": {
+        // Watch 2 currency (ETH/USDT, BTC/USDT) be carefull to import data using influx-crypto-watcher
         "watchList": [
-            {"base": "BTC",
-            "quote": "USDT",
-            "exchange": "binance"
-            }],
+          {"base": "BTC","quote": "USDT","exchange": "binance"}
+          {"base": "ETH","quote": "USDT","exchange": "binance"}
+        ],
         "warmup": 1500,
         "batchSize": 1000,
         "bufferSize": 5000,

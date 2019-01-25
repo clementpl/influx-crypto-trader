@@ -1,11 +1,9 @@
 import * as moment from 'moment';
 import { Order } from 'ccxt';
-import { config } from '../../../../config/config';
 import { Influx } from '../../Influx/Influx';
-import { Candle } from '../../Env/CandleSet';
+import { Candle } from '../../Env/Candle';
 import { logger } from '../../../logger';
 import { MEASUREMENT_PORTFOLIO, MEASUREMENT_TRADES } from '../../Influx/constants';
-import { tagsToString } from '../../Influx/helpers';
 
 export interface PortfolioConfig {
   name: string;

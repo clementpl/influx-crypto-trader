@@ -1,26 +1,12 @@
 import { OHLCV } from '../Influx/Influx';
 import { requireUncached } from '../helpers';
-
-/**
- * Candle interface, represent a candlestick
- *
- * @export
- * @interface Candle
- */
-export interface Candle {
-  time: number;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-  indicators?: any;
-  [key: string]: any;
-}
+import { Candle } from './Candle';
+import { CandlesAgg } from './CandlesAgg';
 
 export interface CandleSetConfig {
   bufferSize: number;
   indicators: Array<{ label: string; opts: { [name: string]: string } }>;
+  aggTimes: string[]; // '1m', ...
 }
 
 export type CandleSetPlugin = (candles: Candle[], newCandle: Candle) => Promise<{ [name: string]: any }>;
@@ -33,7 +19,7 @@ export type CandleSetPlugin = (candles: Candle[], newCandle: Candle) => Promise<
  * @class CandleSet
  */
 export class CandleSet {
-  public marketCandles: Map<string, Candle[]> = new Map();
+  public marketCandles: Map<string, Candle[] | CandlesAgg> = new Map();
   private plugins: CandleSetPlugin[] = []; // indicators plugins
 
   /**
@@ -61,10 +47,16 @@ export class CandleSet {
     if (!(candles instanceof Array)) {
       candles = [candles];
     }
-    const candlesSymbol = this.getMarketCandles(symbol);
+    const candlesSymbol = this.getMarketCandles(symbol) as Candle[];
     candles = this.removeDuplicates(candles, symbol);
     for (const candle of candles) {
-      candlesSymbol.push(await this.calcCandle(symbol, candle));
+      const newCandle = await this.calcCandle(symbol, candle);
+      candlesSymbol.push(newCandle);
+      // Push to CandlesAgg configurated
+      this.config.aggTimes.forEach(aggTime => {
+        const candleAgg = this.getMarketCandles(`${symbol}:${aggTime}`, aggTime) as CandlesAgg;
+        candleAgg.push(newCandle);
+      });
     }
     if (candlesSymbol.length > this.config.bufferSize) {
       candlesSymbol.splice(0, candlesSymbol.length - this.config.bufferSize);
@@ -78,7 +70,7 @@ export class CandleSet {
    * @memberof CandleSet
    */
   public pop(symbol: string): Candle | undefined {
-    const candlesSymbol = this.getMarketCandles(symbol);
+    const candlesSymbol = this.getMarketCandles(symbol) as Candle[];
     return candlesSymbol.pop();
   }
 
@@ -89,7 +81,7 @@ export class CandleSet {
    * @memberof CandleSet
    */
   public get(symbol: string): Candle[] {
-    return this.getMarketCandles(symbol);
+    return this.getMarketCandles(symbol) as Candle[];
   }
 
   /**
@@ -100,7 +92,7 @@ export class CandleSet {
    * @memberof CandleSet
    */
   public getLast(symbol: string, nb: number = 1): Candle | Candle[] {
-    const candlesSymbol = this.getMarketCandles(symbol);
+    const candlesSymbol = this.getMarketCandles(symbol) as Candle[];
     return nb === 1 ? candlesSymbol[candlesSymbol.length - 1] : candlesSymbol.slice(-1 * nb);
   }
 
@@ -109,14 +101,18 @@ export class CandleSet {
    *
    * @private
    * @param {string} symbol
+   * @param {boolean} [agg] should return CandleAgg
    * @returns
    * @memberof CandleSet
    */
-  private getMarketCandles(symbol: string): Candle[] {
+  public getMarketCandles(symbol: string, agg?: string): Candle[] | CandlesAgg {
     if (!this.marketCandles.get(symbol)) {
-      this.marketCandles.set(symbol, []);
+      this.marketCandles.set(symbol, agg ? new CandlesAgg(agg, this.config.bufferSize) : []);
     }
-    return <Candle[]>this.marketCandles.get(symbol);
+    const candles = this.marketCandles.get(symbol) as CandlesAgg | Candle[];
+    if (agg) return candles as CandlesAgg;
+    if (candles instanceof CandlesAgg) return candles.getCandles();
+    return candles;
   }
 
   /**
@@ -129,7 +125,7 @@ export class CandleSet {
    * @memberof CandleSet
    */
   private removeDuplicates(candles: Candle[], symbol: string): Candle[] {
-    const candlesSymbol = this.getMarketCandles(symbol);
+    const candlesSymbol = this.getMarketCandles(symbol) as Candle[];
     // If only new candles given (nothing to remove)
     if (candlesSymbol.length === 0 || candles[0].time > candlesSymbol[candlesSymbol.length - 1].time) return candles;
     for (let i = candles.length - 1; i >= 0; i--) {
@@ -156,7 +152,7 @@ export class CandleSet {
     // .map(c => c.close * scaler)
     // .concat(+candle.close * scaler);
 
-    const candlesSymbol = this.getMarketCandles(symbol);
+    const candlesSymbol = this.getMarketCandles(symbol) as Candle[];
 
     const newCandle: Candle = {
       time: +candle.time,

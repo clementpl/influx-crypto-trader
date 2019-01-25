@@ -1,6 +1,7 @@
 import * as moment from 'moment';
 import { EnvConfig, Env } from '../Env/Env';
-import { CandleSet, Candle } from '../Env/CandleSet';
+import { CandleSet } from '../Env/CandleSet';
+import { Candle } from '../Env/Candle';
 import { Exchange } from './Exchange/Exchange';
 import { logger } from '../../logger';
 import { Market, Order } from 'ccxt';
@@ -115,7 +116,7 @@ export class Trader {
         // console.time('begin');
         this.checkTrader();
         // Push indicators to bufferInputs (will write it to influx)
-        if (Object.keys(lastCandle.indicators).length > 0) {
+        if (Object.keys(lastCandle.indicators || {}).length > 0) {
           this.bufferInputs.push({
             time: lastCandle.time,
             values: flatten(lastCandle.indicators),
