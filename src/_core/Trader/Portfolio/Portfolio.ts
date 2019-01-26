@@ -40,7 +40,7 @@ export class Portfolio {
   /**
    * Flush (Help to write data to influxDB efficiently in backtest mode)
    *  - BACKTEST => will flush data to influxDB every 5 secondes
-   *  - STRAMING => will flush every minutes "normal behavior"
+   *  - STREAMING => will flush every minutes "normal behavior"
    */
   private flushTimeout = 5;
   private lastFlushTime: number = new Date().getTime();

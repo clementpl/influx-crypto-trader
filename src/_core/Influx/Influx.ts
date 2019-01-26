@@ -117,19 +117,15 @@ export class Influx {
               .utc()
               .format()
           : opts.since;
-      let ret: any = await this.influx.query(
+      const ret: any = await this.influx.query(
         `SELECT first(open) as open, max(high) as high, min(low) as low, last(close) as close, sum(volume) as volume
          FROM ${MEASUREMENT_OHLC}
          WHERE ${tagsToString(tags)} AND time >= '${since}' AND time < '${getStop(since, limit)}'
-         GROUP BY time(${aggregatedTime}) fill(linear) limit ${limit + 1}`,
+         GROUP BY time(${aggregatedTime}) fill(none) limit ${limit + 1}`,
         {
           database: this.conf.stockDatabase,
         }
       );
-      // streaming fix remove last candle not initialize
-      if (limit < 50) {
-        ret = ret.filter((el: any) => +el.open !== 0 && +el.close !== 0);
-      }
       return ret.map((el: any) => ({
         time: new Date(el.time.toString()).getTime(),
         open: +el.open,

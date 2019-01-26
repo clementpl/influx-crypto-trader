@@ -23,7 +23,6 @@ export class CandlesAgg {
 
   public push(newCandle: Candle) {
     // process candle
-    // TODO => Use unit getMinutes/getHours/getDay...
     if (this.buffer.length === 0 || this.convertTime(newCandle.time) % this.amount === 0) {
       this.buffer.push(newCandle);
     }
@@ -36,6 +35,7 @@ export class CandlesAgg {
       lastCandle.close = newCandle.close;
       if (newCandle.low < lastCandle.low) lastCandle.low = newCandle.low;
       if (newCandle.high > lastCandle.high) lastCandle.high = newCandle.high;
+      lastCandle.indicators = newCandle.indicators;
     }
     // Remove
     if (this.buffer.length > this.bufferSize) {

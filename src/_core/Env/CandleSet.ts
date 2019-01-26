@@ -20,7 +20,7 @@ export type CandleSetPlugin = (candles: Candle[], newCandle: Candle) => Promise<
  */
 export class CandleSet {
   public marketCandles: Map<string, Candle[] | CandlesAgg> = new Map();
-  private plugins: CandleSetPlugin[] = []; // indicators plugins
+  private plugins: Array<{ opts: any; compute: CandleSetPlugin }> = []; // indicators plugins
 
   /**
    * Creates an instance of CandleSet.
@@ -28,9 +28,10 @@ export class CandleSet {
    */
   constructor(public config: CandleSetConfig) {
     // Attach plugins
-    this.plugins = config.indicators.map(({ label, opts }) =>
-      requireUncached(`${__dirname}/../../indicators/${opts.name}`).default(label, opts)
-    );
+    this.plugins = config.indicators.map(({ label, opts }) => ({
+      opts,
+      compute: requireUncached(`${__dirname}/../../indicators/${opts.name}`).default(label, opts),
+    }));
   }
 
   public forEachMarket(callback: (candles: Candle[], symbol: string) => void) {
@@ -107,7 +108,12 @@ export class CandleSet {
    */
   public getMarketCandles(symbol: string, agg?: string): Candle[] | CandlesAgg {
     if (!this.marketCandles.get(symbol)) {
-      this.marketCandles.set(symbol, agg ? new CandlesAgg(agg, this.config.bufferSize) : []);
+      // tags: ['binance', 'BTC', 'USDT', '15m'?]
+      const tags = symbol.split(':');
+      this.marketCandles.set(
+        symbol,
+        tags.length === 4 ? new CandlesAgg(tags[3], this.config.bufferSize) : []
+      );
     }
     const candles = this.marketCandles.get(symbol) as CandlesAgg | Candle[];
     if (agg) return candles as CandlesAgg;
@@ -165,10 +171,11 @@ export class CandleSet {
     };
 
     // Execute plugins
-    for (const plugin of this.plugins) {
+    for (const { opts, compute } of this.plugins) {
+      const candles = opts.aggTime ? (this.getMarketCandles(`${symbol}:${opts.aggTime}`) as Candle[]) : candlesSymbol;
       newCandle.indicators = {
         ...newCandle.indicators,
-        ...(await plugin(candlesSymbol, newCandle)),
+        ...(await compute(candles, newCandle)),
       };
     }
 

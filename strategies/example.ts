@@ -7,11 +7,15 @@ let nbOrder = 0;
 let i = 0;
 // export strategy
 export default async function yourStrategy(candleSet: CandleSet, trader: Trader): Promise<string> {
+  // console.log(candleSet.getLast('binance:BTC:USDT', 2) as Candle[]);
+  // console.log(candleSet.getLast('binance:BTC:USDT:15m', 2) as Candle[]);
   if (i++ % 1000 === 0) {
     // multi currency possible (configure env => watchList [{BTC...}, {ETH}, ...])
     // multiTimerange possible (configure env => aggTimes ['15m', '1h', '4h'])
     const lastCandle = candleSet.getLast('binance:BTC:USDT', 2) as Candle[];
     const aggCandles = candleSet.getLast('binance:BTC:USDT:15m', 2) as Candle[];
+    console.log(lastCandle);
+    console.log(aggCandles);
     console.log(candleSet.getLast('binance:ETH:USDT', 2) as Candle[]);
   }
 

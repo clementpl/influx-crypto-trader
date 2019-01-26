@@ -132,9 +132,10 @@ We can easily map indicators to the candleSet when configuring an environment. A
 {
   "label": "sma6h", // name of the indicator (any string)
   "opts": { // indicator opts
-	  "name": "sma", // indicator name (cf: src/indicators)
-		"period": 360, // sma period 360 minutes
-		"key": "close" // sma on which key (open/high/low/close/volume)
+    "name": "sma", // indicator name (cf: src/indicators)
+    "period": 360, // sma period 360 minutes
+    "key": "close" // sma on which key (open/high/low/close/volume)
+    "aggTime": "15m" // OPTIONAL: You can specify which candlestick timerange you want to get as parameter (be carefull to properly configure environment with appropriate aggTimes: [..., ...])
 	}
 }
 ```
@@ -150,6 +151,7 @@ Be carrefull of the plugin order when using indicator in another indicator. (her
           {"base": "BTC","quote": "USDT","exchange": "binance"}
           {"base": "ETH","quote": "USDT","exchange": "binance"}
         ],
+        "aggTimes": ['15m', '4h', 1d'],
         "warmup": 1500,
         "batchSize": 1000,
         "bufferSize": 5000,
@@ -158,23 +160,24 @@ Be carrefull of the plugin order when using indicator in another indicator. (her
             "stop": "2018-09-15 00:00:00"
         },
     	"candleSetPlugins": [
-		  {
-	  		"label": "sma6h",
-  			"opts": {
-				  "name": "sma",
-			  	"period": 360,
-			 		"key": "close"
-		  	}
-	  	}
-		  {
-	  		"label": "var1hsma6h",
-  			"opts": {
-				  "name": "diff",
-			  	"period": 60,
-			 		"key": "indicators.sma6h"
-		  	}
-	  	}
-      ]
+        {
+          "label": "sma6h",
+          "opts": {
+            "name": "sma",
+            "period": 360,
+            "aggTime": "15m", // Will receive candles agg by 15 minutes (00:00, 00:15, 00:30, ...)
+            "key": "close"
+        }
+      },
+      {
+        "label": "var1hsma6h",
+        "opts": {
+          "name": "diff",
+          "period": 60,
+          "key": "indicators.sma6h"
+        }
+      }
+    ]
   }
 ```
 

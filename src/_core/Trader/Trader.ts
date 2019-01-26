@@ -38,6 +38,7 @@ export class Trader {
   public portfolio: Portfolio;
   public status: Status;
   public strategy: (candleSet: CandleSet, trader: Trader) => Promise<string>;
+  // Hook can be usefull for ML algorithm (Override if after creating trader)
   public afterStrategy: (candleSet: CandleSet | undefined, trader: Trader, error?: boolean) => Promise<void>;
   private influx: Influx;
   private symbol: string;
@@ -118,9 +119,11 @@ export class Trader {
         this.checkTrader();
         // Push indicators to bufferInputs (will write it to influx)
         if (Object.keys(lastCandle.indicators || {}).length > 0) {
+          // TODO Write multiple INPUT serie (ETH,BTC, ETH15m, BTC15m, ...)
           this.bufferInputs.push({
             time: lastCandle.time,
             values: flatten(lastCandle.indicators),
+            // tags: ... TODO add aggTimes (loop over it and push with)
           });
         }
         // Update portfolio with new candle
