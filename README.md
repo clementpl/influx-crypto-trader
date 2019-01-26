@@ -254,29 +254,39 @@ The software let you deploy trader which will run in a live/simulation or backte
 
       // Environment configuration
       "env": {
-          // Currency to watch (Not tested with multiples yet)
-	  "watchList": [
-		{ "base": "BTC", "quote": "USDT", "exchange": "binance" }
-	  ],
-	  "warmup": 1500, // How many cadle to fetch before start date
-	  "batchSize": 1000, // Batch size when fetching data
-	  "bufferSize": 5000, // candleSet buffer size (here history of 5000 candles)
-          // backtest configuration (start/stop date)
-	  "backtest": {
-            "start": "2018-02-15 00:00:00",
-        	  "stop": "2018-09-15 00:00:00"
-	  }
-          // Plugins indicator
-          "candleSetPlugins": [
-		  {
-	  		"label": "sma6h",
-  			"opts": {
-		          "name": "sma", // indicator name (see src/indicators)
-                          "period": 360,
-                          "key": "close"
-		  	}
-	  	}
-          ]
+        // Currency to watch (Not tested with multiples yet)
+        "watchList": [
+          { "base": "BTC", "quote": "USDT", "exchange": "binance" }
+        ],
+        "aggTimes": ['15m', '4h', 1d'],
+        "warmup": 1500, // How many cadle to fetch before start date
+        "batchSize": 1000, // Batch size when fetching data
+        "bufferSize": 5000, // candleSet buffer size (here history of 5000 candles)
+        // backtest configuration (start/stop date)
+        "backtest": {
+          "start": "2018-02-15 00:00:00",
+          "stop": "2018-09-15 00:00:00"
+        }
+        // Plugins indicator
+        "candleSetPlugins": [
+        {
+          "label": "sma6h",
+          "opts": {
+            "name": "sma", // indicator name (see src/indicators)
+            "period": 360,
+            "key": "close"
+          }
+        },
+        {
+          "label": "sma6hagg15m",
+          "opts": {
+            "name": "sma", // indicator name (see src/indicators)
+            "aggTime": "15m",
+            "period": 360,
+            "key": "close"
+          }
+        }
+      ]
     }
 }
 ```
