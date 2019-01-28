@@ -18,7 +18,7 @@ export class CandlesAgg {
    */
   constructor(public aggTime: string, private bufferSize: number = 5000) {
     this.unit = this.aggTime.slice(-1)[0];
-    this.amount = parseInt(this.aggTime.slice(0, this.aggTime.length - 1), 10);
+    this.amount = +this.aggTime.slice(0, this.aggTime.length - 1);
   }
 
   public push(newCandle: Candle) {
@@ -53,7 +53,7 @@ export class CandlesAgg {
       case 'h':
         return date.getHours();
       case 'd':
-        return date.getDay();
+        return date.getDate();
       case 'm':
         return date.getMinutes();
       default:
