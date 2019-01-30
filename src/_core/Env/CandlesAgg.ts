@@ -50,12 +50,12 @@ export class CandlesAgg {
   private convertTime(time: number) {
     const date = new Date(time);
     switch (this.unit) {
-      case 'h':
-        return date.getHours();
-      case 'd':
-        return date.getDate();
       case 'm':
         return date.getMinutes();
+      case 'h':
+        return date.getHours() + (date.getMinutes() !== 0 ? 0.1 : 0);
+      case 'd':
+        return date.getDate() + (date.getHours() !== 0 || date.getMinutes() !== 0 ? 0.1 : 0);
       default:
         throw new Error(`Unknown unit ${this.unit}, choose between (m,h,d)`);
     }
