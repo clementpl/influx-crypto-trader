@@ -38,7 +38,7 @@ export class Exchange {
       timeout: 30000,
       enableRateLimit: true,
     });
-    this.config.fees = this.config.fees || 0.002;
+    this.config.fees = this.config.fees || 0.001;
   }
 
   public async getExchangeInfo(base: string, quote: string): Promise<ccxt.Market> {
