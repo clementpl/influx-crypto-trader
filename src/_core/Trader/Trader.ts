@@ -142,9 +142,9 @@ export class Trader {
         await this.flushInputs();
 
         // Before strat callback
-        if (this.strategy.before) await this.strategy.before(candleSet as CandleSet, this, this.config.stratOpts);
+        if (this.strategy.before) await this.strategy.before(candleSet, this, this.config.stratOpts);
         // Run strategy
-        const advice = await this.strategy.run(candleSet as CandleSet, this, this.config.stratOpts);
+        const advice = await this.strategy.run(candleSet, this, this.config.stratOpts);
         // Check if advice is correct (cant buy more than one order at a time)
         const error = this.checkAdvice(advice);
         // Process advice (if error => wait)
@@ -160,7 +160,7 @@ export class Trader {
         }
 
         // After strat callback
-        if (this.strategy.after) await this.strategy.after(candleSet as CandleSet, this, this.config.stratOpts);
+        if (this.strategy.after) await this.strategy.after(candleSet, this, this.config.stratOpts);
 
         // Get next step
         data = await fetcher.next();
@@ -171,7 +171,7 @@ export class Trader {
         } // else candleSet = undefined;
       }
 
-      if (this.strategy.afterAll) await this.strategy.afterAll(candleSet as CandleSet, this, this.config.stratOpts);
+      if (this.strategy.afterAll) await this.strategy.afterAll(candleSet, this, this.config.stratOpts);
 
       // Flush buffer (write it to influx)
       await this.flushInputs(true);
