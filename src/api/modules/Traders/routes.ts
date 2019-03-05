@@ -5,6 +5,7 @@ const traderPayload: any = {
   name: Joi.string().required(),
   test: Joi.boolean(),
   strategie: Joi.string().required(),
+  stratOpts: Joi.object().optional(),
   capital: Joi.number().required(),
   percentInvest: Joi.number().required(),
   base: Joi.string().required(),
@@ -56,7 +57,7 @@ export const routes: any[] = [
     handler: Traders.deleteTrader,
     options: {
       tags: ['Traders', 'API'],
-      description: 'GET Delete a specific trader',
+      description: 'DELETE Delete a specific trader',
     },
   },
 ];

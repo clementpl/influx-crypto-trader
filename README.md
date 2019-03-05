@@ -91,34 +91,52 @@ You can easily customize the dashboard to fit your need
 
 Actually a trader can manage only one order at a time (one buy => one sell, ...).
 
-You can build new strategy in ./strategie/ folder. See (example.ts).
+You can build new strategy in ./strategies/ folder. See (example.ts).
 
-Basically its a function called at each timestep, which should return the action to make 'wait'/'buy'/'sell')
-
-The function is called with the candleSet (stock market data) and the trader (order/portfolio data)
+A strategy is an object of several callback.
 
 ```
-export default async function yourStrategy(candleSet: CandleSet, trader: Trader): Promise<string> {
-  const lastCandle = candleSet.getLast('binance:BTC:USDT', 10) as Candle[]; // retrieve 10 last candle BTC/USDT on binance
-  const lastCandle1 = candleSet.getLast('binance:BTC:USDT:15m', 10) as Candle[]; // retrieve 10 last candle agg on 15 minutes BTC/USDT on binance
-  const lastCandle2 = candleSet.getLast('binance:ETH:USDT:15m', 10) as Candle[]; // retrieve 10 last candle agg on 15 minutes ETH/USDT on binance
+public strategy: {
+  // BeforeAll callback can be usefull to set you candleSet plugins/indicators directly in the strategy exported
+  beforeAll?: (env: EnvConfig, trader: Trader, stratOpts: any) => Promise<void>;
+  before?: (candleSet: CandleSet, trader: Trader, stratOpts: any) => Promise<void>;
+  run: (candleSet: CandleSet, trader: Trader, stratOpts: any) => Promise<string>;
+  after?: (candleSet: CandleSet, trader: Trader, stratOpts: any) => Promise<void>;
+  afterAll?: (candleSet: CandleSet, trader: Trader, stratOpts: any) => Promise<void>;
+};
+```
 
-  console.log(lastCandle);
-  console.log(lastCandle1);
-  console.log(lastCandle2);
+You can export an object with only the run function is needed.
+The function is called at each timestep and need to return the action taken ('wait'/'buy'/'sell').
 
-  const rand = Math.floor(Math.random() * 100);
-  // BUY
-  if (rand === 1 && nbOrder === 0) {
-    nbOrder++;
-    return 'buy'; // tell the trader to buy (if he can)
+The function is called with the candleSet (stock market data), the trader (order/portfolio data) and the strategy options
+
+```
+export default {
+  beforeAll: async function beforeAll(env: EnvConfig, trader: Trader, stratOpts: any): Promise<string> {
+    console.log('beforeAll callback');
+  },
+  run: async function yourStrategy(candleSet: CandleSet, trader: Trader, stratOpts: any): Promise<string> {
+    const lastCandle = candleSet.getLast('binance:BTC:USDT', 10) as Candle[]; // retrieve 10 last candle BTC/USDT on binance
+    const lastCandle1 = candleSet.getLast('binance:BTC:USDT:15m', 10) as Candle[]; // retrieve 10 last candle agg on 15 minutes BTC/USDT on binance
+    const lastCandle2 = candleSet.getLast('binance:ETH:USDT:15m', 10) as Candle[]; // retrieve 10 last candle agg on 15 minutes ETH/USDT on binance
+    console.log(lastCandle);
+    console.log(lastCandle1);
+    console.log(lastCandle2);
+
+    const rand = Math.floor(Math.random() * 100);
+    // BUY
+    if (rand === 1 && nbOrder === 0) {
+      nbOrder++;
+      return 'buy'; // tell the trader to buy (if he can)
+    }
+    // SELL
+    if (nbOrder === 1 && rand === 2) {
+      nbOrder--;
+      return 'sell'; // tell the trader to sell (if he can)
+    }
+    return ''; // wait can be any string ('' || 'wait' || ...)
   }
-  // SELL
-  if (nbOrder === 1 && rand === 2) {
-    nbOrder--;
-    return 'sell'; // tell the trader to sell (if he can)
-  }
-  return ''; // wait can be any string ('' || 'wait' || ...)
 }
 ```
 

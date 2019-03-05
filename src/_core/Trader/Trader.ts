@@ -15,6 +15,7 @@ export interface TraderConfig {
   name: string;
   env: EnvConfig;
   strategie: string;
+  stratOpts: any;
   capital: number;
   percentInvest: number;
   test: boolean;
@@ -37,7 +38,13 @@ export class Trader {
   public env: Env;
   public portfolio: Portfolio;
   public status: Status;
-  public strategy: (candleSet: CandleSet, trader: Trader) => Promise<string>;
+  public strategy: {
+    beforeAll?: (env: EnvConfig, trader: Trader, stratOpts: any) => Promise<void>;
+    before?: (candleSet: CandleSet, trader: Trader, stratOpts: any) => Promise<void>;
+    run: (candleSet: CandleSet, trader: Trader, stratOpts: any) => Promise<string>;
+    after?: (candleSet: CandleSet, trader: Trader, stratOpts: any) => Promise<void>;
+    afterAll?: (candleSet: CandleSet, trader: Trader, stratOpts: any) => Promise<void>;
+  };
   // Hook can be usefull for ML algorithm (Override if after creating trader)
   public afterStrategy: (candleSet: CandleSet | undefined, trader: Trader, error?: boolean) => Promise<void>;
   private influx: Influx;
@@ -61,6 +68,14 @@ export class Trader {
 
   public async init(): Promise<void> {
     try {
+      // Bind trader strategy if needed (override allowed)
+      if (!this.strategy) {
+        // Reload strategy module
+        this.strategy = requireUncached(`${process.cwd()}/strategies/${this.config.strategie}`).default;
+      }
+      // beforeAll callback (can be use to change config or set fixed indicator for the strat)
+      if (this.strategy.beforeAll) await this.strategy.beforeAll(this.config.env, this, this.config.stratOpts);
+
       // Init Env
       this.env = new Env(this.config.env);
       this.influx = await this.env.init();
@@ -80,11 +95,6 @@ export class Trader {
         backtest: this.config.env.backtest ? true : false,
       });
       await this.portfolio.init(this.influx);
-      // If strategy not already override (overriding strategy => usefull for RL training)
-      if (!this.strategy) {
-        // Reload strategy module
-        this.strategy = requireUncached(`${process.cwd()}/strategies/${this.config.strategie}`).default;
-      }
     } catch (error) {
       logger.error(error);
       throw new Error('[TRADER] Problem during trader initialization');
@@ -131,8 +141,10 @@ export class Trader {
         // Persist inputs to influx
         await this.flushInputs();
 
+        // Before strat callback
+        if (this.strategy.before) await this.strategy.before(candleSet as CandleSet, this, this.config.stratOpts);
         // Run strategy
-        const advice = await this.strategy(candleSet as CandleSet, this);
+        const advice = await this.strategy.run(candleSet as CandleSet, this, this.config.stratOpts);
         // Check if advice is correct (cant buy more than one order at a time)
         const error = this.checkAdvice(advice);
         // Process advice (if error => wait)
@@ -147,20 +159,19 @@ export class Trader {
           logger.info(error);
         }
 
+        // After strat callback
+        if (this.strategy.after) await this.strategy.after(candleSet as CandleSet, this, this.config.stratOpts);
+
         // Get next step
         data = await fetcher.next();
         // Set new candleSet, lastCandle
         if (data.value) {
           candleSet = <CandleSet>data.value;
           lastCandle = <Candle>candleSet.getLast(this.symbol);
-        } else candleSet = undefined;
-
-        // If after strategy callback (usefull for RL algorithm => new state provided)
-        if (this.afterStrategy) await this.afterStrategy(candleSet, this, error ? true : false);
+        } // else candleSet = undefined;
       }
 
-      // afterStrategy called with candleSet undefined (== FINISHED)
-      if (this.afterStrategy) await this.afterStrategy(undefined, this);
+      if (this.strategy.afterAll) await this.strategy.afterAll(candleSet as CandleSet, this, this.config.stratOpts);
 
       // Flush buffer (write it to influx)
       await this.flushInputs(true);
