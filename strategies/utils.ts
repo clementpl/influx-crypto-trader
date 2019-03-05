@@ -1,9 +1,17 @@
+import { linear } from 'regression';
 import * as moment from 'moment';
 import * as momentRandom from 'moment-random';
 import { EnvConfig } from '../src/exports';
 
 export function randomBetween(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1) + min);
+}
+
+export function getRegression(serie: number[]) {
+  const result = linear(<any>serie.map((val, idx) => [idx, val]));
+  // return diff linear diff
+  return result.equation[0];
+  // return points[points.length - 2][1] - points[points.length - 3][1];
 }
 
 /**
