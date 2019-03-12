@@ -10,7 +10,7 @@ export function sleep(ms: number): Promise<{}> {
 export function deepFind(obj: any, path: string) {
   const pathSplit = path.split('.');
   for (const p of pathSplit) {
-    obj = obj[p];
+    obj = obj !== undefined && obj[p] !== undefined ? obj[p] : undefined;
   }
   return obj;
 }
