@@ -11,10 +11,11 @@ This project help you build trading strategy for cryptocurrencies and monitoring
 Features:
 
 - Simulation/Backtesting (Live TODO)
-- Add new indicator easily
-- Create your own strategy easily (nodejs)
-- Optimize a strategy using genetic algorithm
-- Trader workers, Each trader run in a subprocess (communication IPC)
+- Configure trader to work with multiple cryptocurrencies and multiple timeframe easily
+- Create new indicator (nodejs)
+- Create your own strategy (nodejs)
+- Optimize a strategy using genetic algorithm (api POST request)
+- Trader workers, Each trader run in a subprocess (communication using IPC)
 
 ## Getting started
 
