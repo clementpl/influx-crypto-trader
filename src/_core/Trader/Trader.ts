@@ -1,10 +1,10 @@
+import { Market, Order } from 'ccxt';
 import * as moment from 'moment';
 import { EnvConfig, Env } from '../Env/Env';
 import { CandleSet } from '../Env/CandleSet';
 import { Candle } from '../Env/Candle';
 import { Exchange } from './Exchange/Exchange';
 import { logger } from '../../logger';
-import { Market, Order } from 'ccxt';
 import { Portfolio } from './Portfolio/Portfolio';
 import { TraderModel } from './model';
 import { Influx } from '../Influx/Influx';
@@ -34,6 +34,13 @@ export enum Status {
   ERROR = 'ERROR',
 }
 
+/**
+ * Trader is use to run a strategy on the configured environment (live/simulation/backtest)
+ * This class take care of calculating different protfolio metric and flushing it to influxDB
+ *
+ * @export
+ * @class Trader
+ */
 export class Trader {
   public env: Env;
   public portfolio: Portfolio;
@@ -66,6 +73,13 @@ export class Trader {
     this.isBacktesting = config.env.backtest ? true : false;
   }
 
+  /**
+   * Init the trader
+   * Bind the strategy, Init the environment, create the echange, create the portfolio
+   *
+   * @returns {Promise<void>}
+   * @memberof Trader
+   */
   public async init(): Promise<void> {
     try {
       // Bind trader strategy if needed (override allowed)
@@ -97,26 +111,40 @@ export class Trader {
       await this.portfolio.init(this.influx);
     } catch (error) {
       logger.error(error);
-      throw new Error('[TRADER] Problem during trader initialization');
+      throw new Error(`[${this.config.name}] Problem during trader initialization`);
     }
   }
 
+  /**
+   * Stop the trader (stop environment)
+   *
+   * @returns {Promise<void>}
+   * @memberof Trader
+   */
   public async stop(): Promise<void> {
     this.status = Status.STOP;
     this.shouldStop = true;
     this.env.stop();
     await this.portfolio.flush(true);
     await this.save();
-    logger.info(`[TRADER] Trader ${this.config.name} stopped`);
+    logger.info(`[${this.config.name}] Trader ${this.config.name} stopped`);
   }
 
+  /**
+   * Start the trader, loop over environment candle generator
+   *
+   * @returns {Promise<void>}
+   * @memberof Trader
+   */
   public async start(): Promise<void> {
     try {
       // Set trader status and save
       this.shouldStop = false;
       this.status = Status.RUNNING;
       await this.save();
-      logger.info(`[TRADER] Trader ${this.config.name} started on ${this.config.base}/${this.config.quote}`);
+      logger.info(
+        `[${this.config.name}] Trader ${this.config.name} started on ${this.config.base}/${this.config.quote}`
+      );
 
       // Get generator and fetch first candles (warmup)
       const fetcher = this.env.getGenerator();
@@ -180,13 +208,12 @@ export class Trader {
       await this.flushInputs(true);
       await this.portfolio.flush(true);
       this.status = Status.ERROR;
-      logger.error(error);
-      throw new Error('[TRADER] Problem while running');
+      throw error;
     }
   }
 
   /**
-   * Delete the trader traces from InfluxDB and MongoDB
+   * Delete the trader related data from InfluxDB and MongoDB
    *
    * @returns {Promise<void>}
    * @memberof Trader
@@ -205,9 +232,15 @@ export class Trader {
     this.portfolio.reset();
   }
 
+  /**
+   * Check if trader can trade
+   *
+   * @private
+   * @memberof Trader
+   */
   private checkTrader() {
     if (this.portfolio.indicators.currentProfit < -0.5) {
-      throw new Error('[Trader] Stop trader too much damage (50% deficit)');
+      throw new Error(`[${this.config.name}] Stop trader too much damage (50% deficit)`);
     }
   }
   /**
@@ -220,23 +253,33 @@ export class Trader {
   private checkAdvice(advice: string): string | undefined {
     let error;
     if (advice === 'buy' && this.currentOrder) {
-      error = '[Trader] Trying to buy but there is already one order bought';
+      error = `[${this.config.name}] Trying to buy but there is already one order bought`;
       // throw new Error('[Trader] Trying to buy but there is already one order bought');
     }
     if (advice === 'sell' && !this.currentOrder) {
-      error = '[Trader] Trying to sell but there is no order to sell';
+      error = `[${this.config.name}] Trying to sell but there is no order to sell`;
       // throw new Error('[Trader] Trying to sell but there is no order to sell');
     }
     return error;
   }
 
+  /**
+   * Buy an order
+   *
+   * @private
+   * @param {Candle} lastCandle
+   * @returns {Promise<void>}
+   * @memberof Trader
+   */
   private async buy(lastCandle: Candle): Promise<void> {
     try {
       const exchangeInfo: Market = await this.exchange.getExchangeInfo(this.config.base, this.config.quote);
       const minCost = exchangeInfo.limits.cost ? exchangeInfo.limits.cost.min : 0;
       if (this.portfolio.indicators.currentCapital < minCost) {
         logger.error(
-          `[TRADER] Capital not sufficient to buy in market (${this.symbol}), currentCapital: ${this.config.capital}`
+          `[${this.config.name}] Capital not sufficient to buy in market (${this.symbol}), currentCapital: ${
+            this.config.capital
+          }`
         );
         await this.stop();
       }
@@ -248,10 +291,18 @@ export class Trader {
       this.currentOrder = order;
     } catch (error) {
       logger.error(error);
-      throw new Error('[TRADER] Problem while buying');
+      throw new Error(`[${this.config.name}] Problem while buying`);
     }
   }
 
+  /**
+   * Sell an order
+   *
+   * @private
+   * @param {Candle} lastCandle
+   * @returns {Promise<void>}
+   * @memberof Trader
+   */
   private async sell(lastCandle: Candle): Promise<void> {
     if (this.currentOrder) {
       try {
@@ -265,7 +316,7 @@ export class Trader {
         this.currentOrder = undefined;
       } catch (error) {
         logger.error(error);
-        throw new Error('[TRADER] Problem while selling');
+        throw new Error(`[${this.config.name}] Problem while selling`);
       }
     }
   }
@@ -283,10 +334,18 @@ export class Trader {
       }
     } catch (error) {
       logger.error(error);
-      logger.error(new Error(`[Trader] Error while saving trader ${this.config.name}`));
+      logger.error(new Error(`[${this.config.name}] Error while saving trader ${this.config.name}`));
     }
   }
 
+  /**
+   * Flush related data (portfolio/buy/sell/...)
+   *
+   * @private
+   * @param {boolean} [force=false]
+   * @returns {Promise<void>}
+   * @memberof Trader
+   */
   private async flushInputs(force: boolean = false): Promise<void> {
     try {
       // If data to write and more than 5 second since last save (or force=true)
@@ -298,10 +357,16 @@ export class Trader {
       }
     } catch (error) {
       logger.error(error);
-      logger.error(new Error(`[Trader] Error while saving candles to measurement ${MEASUREMENT_INPUTS}`));
+      logger.error(new Error(`[${this.config.name}] Error while saving candles to measurement ${MEASUREMENT_INPUTS}`));
     }
   }
 
+  /**
+   * Clean influxDB data related to the trader
+   *
+   * @private
+   * @memberof Trader
+   */
   private async cleanInflux() {
     await this.influx.dropSerie(MEASUREMENT_INPUTS, { name: this.config.name });
   }
