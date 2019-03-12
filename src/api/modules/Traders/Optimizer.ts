@@ -217,10 +217,10 @@ export class Optimizer {
         // LOGGING
         // sort by fitness
         const g = generation.sort((a: any, b: any) => getFitness(b) - getFitness(a));
-        console.log('RESULT GEN ' + gen);
+        logger.info('RESULT GEN ' + gen);
         const fitnesses = g.map((t: any) => getFitness(t));
-        console.log(g.map((t: any) => `${t.config.name}: ${getFitness(t)}`));
-        console.log(
+        logger.info(g.map((t: any) => `${t.config.name}: ${getFitness(t)}`).join('\n'));
+        logger.info(
           'mean: ' + mean(...fitnesses) + ' min: ' + Math.min(...fitnesses) + ' max: ' + Math.max(...fitnesses)
         );
         // Flush config of the generation
