@@ -28,6 +28,12 @@ export interface PortfolioTrade {
   orderProfit: number;
 }
 
+/**
+ * Portfolio class help to track and calculate statistic about different metrics (buy/sell/profit/...)
+ *
+ * @export
+ * @class Portfolio
+ */
 export class Portfolio {
   public indicators: PortfolioIndicators;
   public trade: PortfolioTrade | undefined;
@@ -51,6 +57,13 @@ export class Portfolio {
 
   constructor(public conf: PortfolioConfig) {}
 
+  /**
+   * Init the portfolio
+   *
+   * @param {Influx} influx
+   * @returns {Promise<void>}
+   * @memberof Portfolio
+   */
   public async init(influx: Influx): Promise<void> {
     this.influx = influx;
     await this.cleanInflux();
@@ -58,6 +71,11 @@ export class Portfolio {
     this.reset();
   }
 
+  /**
+   * Reset portfolio
+   *
+   * @memberof Portfolio
+   */
   public reset(): void {
     this.indicators = {
       currentCapital: this.conf.capital,
@@ -71,12 +89,24 @@ export class Portfolio {
     this.tradeHistory = [];
   }
 
+  /**
+   * Clean influx db data
+   *
+   * @returns {Promise<void>}
+   * @memberof Portfolio
+   */
   public async cleanInflux(): Promise<void> {
     const tags = { name: this.conf.name };
     await this.influx.dropSerie(MEASUREMENT_PORTFOLIO, tags);
     await this.influx.dropSerie(MEASUREMENT_TRADES, tags);
   }
 
+  /**
+   * Notify portfolio for a new buy order
+   *
+   * @param {Order} order
+   * @memberof Portfolio
+   */
   public notifyBuy(order: Order): void {
     this.indicators.currentCapital -= order.cost + order.fee;
     this.indicators.assetCapital += order.filled;
@@ -98,6 +128,12 @@ export class Portfolio {
     this.pushTrade();
   }
 
+  /**
+   * Notify portfolio for a new sell order
+   *
+   * @param {Order} order
+   * @memberof Portfolio
+   */
   public notifySell(order: Order): void {
     this.indicators.currentCapital += order.cost - order.fee;
     this.indicators.assetCapital -= order.filled;
@@ -111,12 +147,19 @@ export class Portfolio {
         amount: order.amount,
       },
     });
-    (<any>this.trade).orderSell = order;
+    // Update trade sell order and refresh tradeHistory with new sell order
+    this.trade!.orderSell = order;
     this.tradeHistory.pop();
     this.pushTrade();
     this.trade = undefined;
   }
 
+  /**
+   * Update portofolio statistics with new candle
+   *
+   * @param {Candle} lastCandle
+   * @memberof Portfolio
+   */
   public update(lastCandle: Candle): void {
     this.indicators.totalValue = this.indicators.currentCapital + this.indicators.assetCapital * lastCandle.close;
     this.indicators.currentProfit = (this.indicators.totalValue - this.conf.capital) / this.conf.capital;
@@ -133,6 +176,13 @@ export class Portfolio {
     }
   }
 
+  /**
+   * Save portfolio data to influx
+   *
+   * @param {Candle} lastCandle
+   * @returns {Promise<void>}
+   * @memberof Portfolio
+   */
   public async save(lastCandle: Candle): Promise<void> {
     this.update(lastCandle);
     // Copy indicator
@@ -142,6 +192,13 @@ export class Portfolio {
     await this.flush();
   }
 
+  /**
+   * Flush data to influxDB
+   *
+   * @param {boolean} [force=false]
+   * @returns {Promise<void>}
+   * @memberof Portfolio
+   */
   public async flush(force: boolean = false): Promise<void> {
     // If lastFlushTime > flushTimeout flush buffer
     // - Backtest every 5 second
@@ -163,6 +220,13 @@ export class Portfolio {
     }
   }
 
+  /**
+   * Helper push an indicator
+   *
+   * @private
+   * @param {PortfolioIndicators} indicators
+   * @memberof Portfolio
+   */
   private pushIndicator(indicators: PortfolioIndicators): void {
     this.indicatorHistory.push(indicators);
     if (this.indicatorHistory.length > this.bufferSize) {
@@ -170,6 +234,12 @@ export class Portfolio {
     }
   }
 
+  /**
+   * Helper push the current trade in history
+   *
+   * @private
+   * @memberof Portfolio
+   */
   private pushTrade(): void {
     const trade = JSON.parse(JSON.stringify(this.trade));
     this.tradeHistory.push(trade);
