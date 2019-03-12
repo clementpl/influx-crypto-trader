@@ -8,6 +8,14 @@ This project help you build trading strategy for cryptocurrencies and monitoring
 [Grafana](https://grafana.com/) and
 [InfluxDB](https://github.com/influxdata/influxdb)
 
+Features:
+
+- Simulation/Backtesting (Live TODO)
+- Add new indicator easily
+- Create your own strategy easily (nodejs)
+- Optimize a strategy using genetic algorithm
+- Trader workers, Each trader run in a subprocess (communication IPC)
+
 ## Getting started
 
 Required
@@ -32,6 +40,7 @@ curl --request POST \
       "name": "backtest",
       "test": true,
       "strategie": "example",
+      "stratOpts": {},
       "capital": 1000,
       "percentInvest": 0.25,
       "base": "BTC",
@@ -50,8 +59,8 @@ curl --request POST \
         "batchSize": 1000,
         "bufferSize": 5000,
         "backtest": {
-            "start": "2018-02-15 00:00:00",
-            "stop": "2018-09-15 00:00:00"
+            "start": "2018-04-15 00:00:00",
+            "stop": "2018-05-15 00:00:00"
         },
     	"candleSetPlugins": [
         {
@@ -106,7 +115,7 @@ public strategy: {
 };
 ```
 
-You can export an object with only the run function is needed.
+You can export an object with only the run function (required).
 The function is called at each timestep and need to return the action taken ('wait'/'buy'/'sell').
 
 The function is called with the candleSet (stock market data), the trader (order/portfolio data) and the strategy options
@@ -142,7 +151,7 @@ export default {
 
 ## Indicators
 
-The environment connect to influxdb to fetch candle and then process it at each timestep. The environment is plug with a CandleSet class which handle managing the candles data (buffer, computing indicators, etc...)
+The environment connect to influxdb to fetch candle and then process it at each timestep. The environment is plug with a CandleSet class which manage the candles data (buffer, timeframe, indicators computation, etc...)
 
 We can easily map indicators to the candleSet when configuring an environment. A candleSetPlugin is define as:
 
@@ -261,6 +270,7 @@ The software let you deploy trader which will run in a live/simulation or backte
       "name": "backtest", // trader name
       "test": true, // if true => simulation
       "strategie": "MACD", // name of the strategy to use (see ./strategies folder), you can also test MACD
+      "stratOpts": {},
       "capital": 1000, // quote capital (here USDT)
       "percentInvest": 0.25, // percent invest per trader 25%
       "base": "BTC",
@@ -311,6 +321,6 @@ The software let you deploy trader which will run in a live/simulation or backte
 
 Every trader are persist to MongoDB to restart them on reboot (persist OK, restart TODO).
 
-I'm also working on a machine learning part with tensorflow (Supervised and Reinforcement learning)
+I'm also working on machine learning stuff with tensorflow (Supervised and Reinforcement learning)
 
-Any help can be usefull to make the software "stronger" :)
+You can email me at clement22860@gmail.com.
