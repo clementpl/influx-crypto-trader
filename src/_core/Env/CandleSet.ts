@@ -51,12 +51,17 @@ export class CandleSet {
     const candlesSymbol = this.getMarketCandles(symbol) as Candle[];
     candles = this.removeDuplicates(candles, symbol);
     for (const candle of candles) {
-      const newCandle = await this.calcCandle(symbol, candle);
-      candlesSymbol.push(newCandle);
       // Push to CandlesAgg configurated
       this.config.aggTimes.forEach(aggTime => {
         const candleAgg = this.getMarketCandles(`${symbol}:${aggTime}`, aggTime) as CandlesAgg;
-        candleAgg.push(newCandle);
+        candleAgg.push(candle);
+      });
+      const newCandle = await this.calcCandle(symbol, candle);
+      candlesSymbol.push(newCandle);
+      // Set correct indicators
+      this.config.aggTimes.forEach(aggTime => {
+        const candleAgg = this.getMarketCandles(`${symbol}:${aggTime}`, aggTime) as CandlesAgg;
+        candleAgg.getLast().indicators = newCandle.indicators;
       });
     }
     if (candlesSymbol.length > this.config.bufferSize) {
@@ -110,10 +115,7 @@ export class CandleSet {
     if (!this.marketCandles.get(symbol)) {
       // tags: ['binance', 'BTC', 'USDT', '15m'?]
       const tags = symbol.split(':');
-      this.marketCandles.set(
-        symbol,
-        tags.length === 4 ? new CandlesAgg(tags[3], this.config.bufferSize) : []
-      );
+      this.marketCandles.set(symbol, tags.length === 4 ? new CandlesAgg(tags[3], this.config.bufferSize) : []);
     }
     const candles = this.marketCandles.get(symbol) as CandlesAgg | Candle[];
     if (agg) return candles as CandlesAgg;
@@ -172,11 +174,26 @@ export class CandleSet {
 
     // Execute plugins
     for (const { opts, compute } of this.plugins) {
-      const candles = opts.aggTime ? (this.getMarketCandles(`${symbol}:${opts.aggTime}`) as Candle[]) : candlesSymbol;
+      if (opts.aggTime) {
+        const candles = this.getMarketCandles(`${symbol}:${opts.aggTime}`) as Candle[];
+        // const lastCandleAgg = candles.slice(-1)[0];
+        // Maybe make a ref
+        newCandle.indicators = {
+          ...newCandle.indicators,
+          ...(await compute(candles.slice(0, candles.length - 1), candles.slice(-1)[0])),
+        };
+      } else {
+        const candles = opts.aggTime ? (this.getMarketCandles(`${symbol}:${opts.aggTime}`) as Candle[]) : candlesSymbol;
+        newCandle.indicators = {
+          ...newCandle.indicators,
+          ...(await compute(candles, newCandle)),
+        };
+      }
+      /*const candles = opts.aggTime ? (this.getMarketCandles(`${symbol}:${opts.aggTime}`) as Candle[]) : candlesSymbol;
       newCandle.indicators = {
         ...newCandle.indicators,
         ...(await compute(candles, newCandle)),
-      };
+      };*/
     }
 
     return newCandle;

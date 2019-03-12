@@ -47,6 +47,10 @@ export class CandlesAgg {
     return this.buffer;
   }
 
+  public getLast() {
+    return this.buffer[this.buffer.length - 1];
+  }
+
   private convertTime(time: number) {
     const date = new Date(time);
     switch (this.unit) {
