@@ -1,13 +1,12 @@
+import { existsSync } from 'fs';
 import { Request } from 'hapi';
 import * as Boom from 'boom';
-import { logger } from '../../../logger';
-import { TraderConfig, Trader, Status } from '../../../_core/Trader/Trader';
-import { TraderModel } from '../../../_core/Trader/model';
+import { logger, TraderConfig, TraderWorker, Status, TraderModel } from '../../../../src/exports';
 import { success } from '../../helpers';
-import { existsSync } from 'fs';
+import { Optimizer } from './Optimizer';
 
 export class Traders {
-  public static runningTraders: Trader[] = [];
+  public static runningTraders: TraderWorker[] = [];
 
   public static async getTraders(): Promise<any> {
     try {
@@ -41,22 +40,37 @@ export class Traders {
       if (!existsSync(strategiePath)) {
         return Boom.badRequest(`Strategy file not found at: ${strategiePath}`);
       }
-      const trader = new Trader(traderConfig);
+
+      // Create trader worker
+      const trader = new TraderWorker(traderConfig);
+      // Start thread and init trader (env/portfolio/...)
       await trader.init();
       // Start trader (stop and delete it when finish running (backtest mode))
       trader
         .start()
         .then(async () => {
-          if (trader.status !== Status.STOP) await trader.stop();
+          if ((await trader.getStatus()) !== Status.STOP) await trader.stop();
           Traders.removeRunnningTrader(trader);
           logger.info(`[API] trader ${traderConfig.name} finish running`);
         })
-        .catch(async error => {
+        .catch(async (error: Error) => {
           logger.error(error);
           await trader.stop();
           Traders.removeRunnningTrader(trader);
         });
+      // Push it to array of running traders
       Traders.runningTraders.push(trader);
+      return success();
+    } catch (error) {
+      logger.error(error);
+      throw Boom.internal(error);
+    }
+  }
+
+  public static async optimizeTrader(request: Request): Promise<any> {
+    try {
+      const { trader, opts } = <any>request.payload;
+      Optimizer.genetic(trader, opts).catch(error => logger.error(error));
       return success();
     } catch (error) {
       logger.error(error);
@@ -82,7 +96,7 @@ export class Traders {
     }
   }
 
-  private static removeRunnningTrader(trader: Trader): void {
+  private static removeRunnningTrader(trader: TraderWorker): void {
     const runningIdx = Traders.runningTraders.map(t => t.config.name).indexOf(trader.config.name);
     if (runningIdx !== -1) Traders.runningTraders.splice(runningIdx, 1);
   }
