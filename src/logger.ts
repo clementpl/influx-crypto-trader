@@ -20,10 +20,10 @@ function format(colorize: boolean = false) {
 export const logger = winston.createLogger({
   transports: [
     new winston.transports.Console(),
-    new winston.transports.File(<any>{
+    new winston.transports.File({
       // format: format() //without colorize => winston bug => https://github.com/winstonjs/winston/issues/1243
       filename: resolvePath(config.log.logPath),
-    }),
+    } as any),
     new winston.transports.File({
       // format: format() //without colorize => winston bug => https://github.com/winstonjs/winston/issues/1243
       level: 'error',
