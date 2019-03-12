@@ -32,6 +32,21 @@ const traderPayload: any = {
 export const routes: any[] = [
   {
     method: 'POST',
+    path: '/traders/optimize',
+    handler: Traders.optimizeTrader,
+    options: {
+      validate: {
+        payload: {
+          opts: Joi.object(),
+          trader: traderPayload,
+        },
+      },
+      tags: ['Traders', 'API'],
+      description: 'POST Optimize a trader strategy using genetic algorithm',
+    },
+  },
+  {
+    method: 'POST',
     path: '/traders',
     handler: Traders.createTrader,
     options: {
