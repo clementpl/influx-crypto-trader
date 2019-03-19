@@ -1,6 +1,6 @@
 import { volumeprofile as volumeProfileTI } from 'technicalindicators';
-import { Candle } from '_core/Env/Candle';
-import { CandleIndicator } from 'indicators/CandleIndicator';
+import { Candle } from '@core/Env/Candle';
+import { CandleIndicator } from './CandleIndicator';
 import { mergeLabel } from './helpers';
 
 interface VPConfig {

@@ -1,5 +1,5 @@
 import { macd as macdTI } from 'technicalindicators';
-import { Candle } from '../_core/Env/Candle';
+import { Candle } from '@core/Env/Candle';
 import { CandleIndicator } from './CandleIndicator';
 import { MACDOutput } from 'technicalindicators/declarations/moving_averages/MACD';
 import { mergeLabel } from './helpers';

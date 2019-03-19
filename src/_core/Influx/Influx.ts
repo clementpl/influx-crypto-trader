@@ -1,7 +1,7 @@
 import * as moment from 'moment';
 import { InfluxDB } from 'influx';
-import { logger } from '../../logger';
-import { MEASUREMENT_OHLC, MEASUREMENT_PORTFOLIO } from './constants';
+import { logger } from '@src/logger';
+import { MEASUREMENT_OHLC } from './constants';
 import { tagsToString, getSinceFromNow, getStop, tagsToRegexp, filterNaN } from './helpers';
 
 export interface InfluxConfig {

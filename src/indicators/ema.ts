@@ -1,6 +1,6 @@
 import { ema as emaTI } from 'technicalindicators';
-import { Candle } from '_core/Env/Candle';
-import { CandleIndicator } from 'indicators/CandleIndicator';
+import { Candle } from '@core/Env/Candle';
+import { CandleIndicator } from './CandleIndicator';
 
 interface EMAConfig {
   period: number;

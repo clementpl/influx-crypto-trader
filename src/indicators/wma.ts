@@ -1,5 +1,5 @@
 import { wma as wmaTI } from 'technicalindicators';
-import { Candle } from '_core/Env/Candle';
+import { Candle } from '@core/Env/Candle';
 import { CandleIndicator } from './CandleIndicator';
 
 interface WMAConfig {

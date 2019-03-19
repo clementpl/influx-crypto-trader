@@ -1,7 +1,6 @@
-import { ema as emaTI } from 'technicalindicators';
-import { Candle } from '_core/Env/Candle';
-import { CandleIndicator } from 'indicators/CandleIndicator';
-import { deepFind } from '../_core/helpers';
+import { Candle } from '@core/Env/Candle';
+import { CandleIndicator } from '@indicators/CandleIndicator';
+import { deepFind } from '@core/helpers';
 
 interface DiffConfig {
   period: number;

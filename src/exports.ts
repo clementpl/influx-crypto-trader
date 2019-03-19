@@ -1,5 +1,5 @@
 // Core export
-export * from './_core/Trader/Trader';
-export * from './_core/exports';
+export * from '@core/Trader/Trader';
+export * from '@core/exports';
 // Logger
 export * from './logger';

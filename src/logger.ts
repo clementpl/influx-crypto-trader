@@ -1,6 +1,6 @@
 import * as winston from 'winston';
 import * as moment from 'moment';
-import { config } from '../config/config';
+import { config } from '@config/config';
 
 // Path helper replace {time} => current time
 const resolvePath = (path: string) => path.replace('{time}', moment().format('YYYYMMDD-HHmm'));

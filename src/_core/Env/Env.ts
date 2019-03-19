@@ -1,9 +1,9 @@
 import * as moment from 'moment';
+import { config } from '@config/config';
+import { logger } from '@src/logger';
+import { Influx, OHLCVTags, OHLCV } from '@core/Influx/Influx';
+import { sleep } from '@core/helpers';
 import { CandleSet } from './CandleSet';
-import { Influx, OHLCVTags, OHLCV } from '../Influx/Influx';
-import { config } from '../../../config/config';
-import { logger } from '../../logger';
-import { sleep } from '../helpers';
 
 export interface EnvConfig {
   watchList: OHLCVTags[]; // List of currency to watch, base/quote/exchange

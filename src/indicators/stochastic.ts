@@ -1,7 +1,7 @@
 import { stochastic as stochasticTI } from 'technicalindicators';
 import { StochasticOutput } from 'technicalindicators/declarations/momentum/Stochastic';
-import { Candle } from '_core/Env/Candle';
-import { CandleIndicator } from 'indicators/CandleIndicator';
+import { Candle } from '@core/Env/Candle';
+import { CandleIndicator } from './CandleIndicator';
 import { mergeLabel } from './helpers';
 
 interface RSIConfig {

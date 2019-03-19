@@ -1,5 +1,5 @@
 import { williamsr } from 'technicalindicators';
-import { Candle } from '../_core/Env/Candle';
+import { Candle } from '@core/Env/Candle';
 import { CandleIndicator } from './CandleIndicator';
 import { mergeLabel } from './helpers';
 

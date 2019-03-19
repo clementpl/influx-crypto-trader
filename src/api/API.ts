@@ -1,5 +1,5 @@
 import { Server } from 'hapi';
-import { logger } from '../logger';
+import { logger } from '@src/logger';
 import { routes } from './modules/routes';
 import { Traders } from './modules/Traders/Traders';
 

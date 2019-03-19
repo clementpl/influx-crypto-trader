@@ -1,14 +1,14 @@
 import { Market, Order } from 'ccxt';
 import * as moment from 'moment';
-import { EnvConfig, Env } from '../Env/Env';
-import { CandleSet } from '../Env/CandleSet';
-import { Candle } from '../Env/Candle';
+import { logger } from '@src/logger';
+import { Influx } from '@core/Influx/Influx';
+import { MEASUREMENT_INPUTS } from '@core/Influx/constants';
+import { EnvConfig, Env } from '@core/Env/Env';
+import { CandleSet } from '@core/Env/CandleSet';
+import { Candle } from '@core/Env/Candle';
 import { Exchange } from './Exchange/Exchange';
-import { logger } from '../../logger';
 import { Portfolio } from './Portfolio/Portfolio';
 import { TraderModel } from './model';
-import { Influx } from '../Influx/Influx';
-import { MEASUREMENT_INPUTS } from '../Influx/constants';
 import { flatten, requireUncached } from '../helpers';
 
 export interface TraderConfig {

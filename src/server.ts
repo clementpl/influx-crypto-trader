@@ -1,6 +1,6 @@
 import { Server } from 'hapi';
 import { logger } from './logger';
-import { Mongo } from './_core/Mongo/Mongo';
+import { Mongo } from '@core/Mongo/Mongo';
 import { config } from '../config/config';
 import { API } from './api/API';
 

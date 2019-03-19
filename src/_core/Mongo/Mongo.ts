@@ -1,5 +1,5 @@
 import * as mongoose from 'mongoose';
-import { logger } from '../../logger';
+import { logger } from '@src/logger';
 
 export interface MongoConfig {
   host: string;

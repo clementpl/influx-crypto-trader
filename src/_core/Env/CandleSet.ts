@@ -1,5 +1,5 @@
-import { OHLCV } from '../Influx/Influx';
-import { requireUncached } from '../helpers';
+import { OHLCV } from '@core/Influx/Influx';
+import { requireUncached } from '@core/helpers';
 import { Candle } from './Candle';
 import { CandlesAgg } from './CandlesAgg';
 
