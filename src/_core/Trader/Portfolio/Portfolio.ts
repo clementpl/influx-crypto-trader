@@ -149,6 +149,9 @@ export class Portfolio {
     });
     // Update trade sell order and refresh tradeHistory with new sell order
     this.trade!.orderSell = order;
+    // Profit % => (SellPrice - BuyPrice (-fees)) / BuyPrice
+    this.trade!.orderProfit =
+      (order.cost - this.trade!.orderBuy.cost - (this.trade!.orderBuy.fee + order.fee)) / this.trade!.orderBuy.cost;
     this.tradeHistory.pop();
     this.pushTrade();
     this.trade = undefined;
@@ -164,7 +167,10 @@ export class Portfolio {
     this.indicators.totalValue = this.indicators.currentCapital + this.indicators.assetCapital * lastCandle.close;
     this.indicators.currentProfit = (this.indicators.totalValue - this.conf.capital) / this.conf.capital;
     if (this.trade) {
-      this.trade.orderProfit = (lastCandle.close - this.trade.orderBuy.price) / this.trade.orderBuy.price;
+      // this.trade.orderProfit = (lastCandle.close - this.trade.orderBuy.price) / this.trade.orderBuy.price;
+      this.trade.orderProfit =
+        (lastCandle.close * this.trade.orderBuy.filled - this.trade.orderBuy.cost - this.trade.orderBuy.fee) /
+        this.trade.orderBuy.cost;
     }
     // If first call to Update (init buffer serie)
     if (!this.hasInitSeries) {
