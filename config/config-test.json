@@ -6,9 +6,9 @@
   "influx": {
     "host": "localhost",
     "port": 8086,
-    "stockDatabase": "test_crypto_series",
+    "stockDatabase": "dev_crypto_series",
     "eventDatabase": "test_crypto_signals",
-    "portfolioDatabase": "test_crypto_portfolio"
+    "traderDatabase": "test_crypto_portfolio"
   },
   "mongo": {
     "host": "localhost",
