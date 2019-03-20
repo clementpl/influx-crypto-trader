@@ -68,6 +68,15 @@ export const routes: any[] = [
     },
   },
   {
+    method: 'GET',
+    path: '/traders/{name}',
+    handler: Traders.getTrader,
+    options: {
+      tags: ['Traders', 'API'],
+      description: 'GET Fetch a specific trader',
+    },
+  },
+  {
     method: 'DELETE',
     path: '/traders/{name}',
     handler: Traders.deleteTrader,
