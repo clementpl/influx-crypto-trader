@@ -3,6 +3,7 @@ import { Traders } from './Traders';
 
 const traderPayload: any = {
   name: Joi.string().required(),
+  silent: Joi.boolean().optional(),
   test: Joi.boolean(),
   strategie: Joi.string().required(),
   stratOpts: Joi.object().optional(),

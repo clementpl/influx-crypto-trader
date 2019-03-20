@@ -60,7 +60,7 @@ export class Traders {
         });
       // Push it to array of running traders
       Traders.runningTraders.push(trader);
-      return success();
+      return success(trader.trader.config.name);
     } catch (error) {
       logger.error(error);
       throw Boom.internal(error);
