@@ -25,8 +25,8 @@ export const getTraderConfig = (strat: string) => ({
     batchSize: 1000,
     bufferSize: 5000,
     backtest: {
-      start: '2018-02-20 00:00:00',
-      stop: '2018-03-01 00:00:00',
+      start: '2018-02-20T00:00:00Z',
+      stop: '2018-03-01T00:00:00Z',
     },
     candleSetPlugins: [],
   },

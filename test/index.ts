@@ -1,16 +1,14 @@
-// import * as chai from 'chai';
 import { logger } from '../src/logger';
 
 logger.silent = false;
-// chai.should();
 
-function importTest(name: string, path: string): void {
+function importTest(name: string, path: string[]): void {
   describe(name, function() {
-    require(path);
+    path.forEach(p => require(p));
   });
 }
 
 describe('UNIT TEST', () => {
-  importTest('CORE', './CORE/index.ts');
+  importTest('CORE', ['./CORE/trader.ts', './CORE/indicators.ts']);
   // importTest('API', './API/index.ts');
 });

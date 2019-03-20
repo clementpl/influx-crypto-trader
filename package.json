@@ -7,7 +7,7 @@
     "prettier": "prettier --write 'src/**/*.ts'",
     "coverage": "nyc report --reporter=text-lcov | coveralls",
     "pretest": "node_modules/tslint/bin/tslint --project .",
-    "test": "NODE_ENV=TEST nyc ts-mocha -r tsconfig-paths/register --timeout 60000 -P ./tsconfig.json test/index.ts",
+    "test": "NODE_ENV=TEST nyc ts-mocha -r tsconfig-paths/register -P ./tsconfig.json test/index.ts",
     "start": "ts-node -P ./tsconfig.json -r tsconfig-paths/register ./src/index.ts"
   },
   "author": "",
@@ -61,5 +61,17 @@
     "tslint-config-prettier": "^1.16.0",
     "tslint-config-standard": "^8.0.1",
     "typescript": "^3.2.2"
+  },
+  "nyc": {
+    "extension": [
+      ".ts"
+    ],
+    "include": [
+      "src/"
+    ],
+    "exclude": [
+      "src/**/*.d.ts"
+    ],
+    "all": true
   }
 }
