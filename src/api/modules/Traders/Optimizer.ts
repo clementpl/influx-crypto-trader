@@ -140,21 +140,16 @@ function breedNewGeneration(
 function makeGeneration(traderConfig: TraderConfig, opts: GeneticOpts, gen: number): TraderWorker[] {
   let ind = 0;
   const generation = [];
-  try {
-    while (ind < opts.popSize) {
-      // Add best indiv (no mutation copy of config)
-      if (ind === 0) {
-        generation.push(
-          createTraderWorker(traderConfig, `${traderConfig.name}-gen${gen}-ind${ind}`, traderConfig.stratOpts)
-        );
-      } else {
-        generation.push(randomIndiv(traderConfig, opts, gen, ind));
-      }
-      ind++;
+  while (ind < opts.popSize) {
+    // Add best indiv (no mutation copy of config)
+    if (ind === 0) {
+      generation.push(
+        createTraderWorker(traderConfig, `${traderConfig.name}-gen${gen}-ind${ind}`, traderConfig.stratOpts)
+      );
+    } else {
+      generation.push(randomIndiv(traderConfig, opts, gen, ind));
     }
-  } catch (error) {
-    logger.error(error);
-    throw new Error('Problem while making generation');
+    ind++;
   }
   return generation;
 }
@@ -197,17 +192,14 @@ export class Optimizer {
                     (<any>t).hasRunned = true;
                     resolve();
                   } catch (error) {
-                    logger.error(error);
                     await t.stop().catch(error => logger.error(error));
                     reject(error);
-                    // resolve();
-                    // throw error;
                   }
                 })
             )
             .catch(error => {
               logger.error(error);
-              throw Error(`Problem while running ${t.config.name}`);
+              // logger.error(new Error(`Problem while running ${t.config.name}`));
             });
         });
         // Execute traders with batchSize = Optimize.threadsSize
