@@ -1,6 +1,5 @@
 import { fork, ChildProcess } from 'child_process';
 import { TraderConfig, Trader } from './Trader';
-import { logger } from '../../logger';
 
 /**
  * TraderWorker class help to create a trader in another process (fork) and send command to the worker using IPC
@@ -22,7 +21,9 @@ export class TraderWorker {
     private opts: {
       silent: boolean;
     } = { silent: false }
-  ) {}
+  ) {
+    if (config.silent) opts.silent = true;
+  }
 
   /**
    * Create a new child process, bind message resolver to resolve command promise (this.resolver)
@@ -32,7 +33,10 @@ export class TraderWorker {
    * @memberof TraderWorker
    */
   public async init(): Promise<any> {
-    this.traderProcess = fork(__dirname + '/worker.ts', { silent: this.opts.silent } as any);
+    this.traderProcess = fork(__dirname + '/worker.ts', [], {
+      silent: this.opts.silent,
+      execArgv: ['-r', 'ts-node/register', '-r', 'tsconfig-paths/register'],
+    });
     // Dispatch response command
     this.traderProcess.on('message', msg => {
       const { command, code, args } = JSON.parse(msg);
@@ -41,7 +45,7 @@ export class TraderWorker {
       // UPDATE trader ref (for properties, stat...) if args is trader
       this.trader = args.config && args.config.name && args.config.exchange ? args : this.trader;
       // STOP special behavior
-      if (command === 'STOP') {
+      if (command === 'STOP' || command === 'DELETE') {
         this.traderProcess.kill();
       }
       // Default behavior

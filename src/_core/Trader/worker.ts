@@ -1,5 +1,7 @@
 import { TraderConfig, Trader } from './Trader';
 import { deepFind } from '../helpers';
+import { Mongo } from '@src/_core/Mongo/Mongo';
+import { config as projectConfig } from '@config/config';
 
 /**
  * Helper send error to master process
@@ -89,6 +91,7 @@ async function main() {
   async function init(config: TraderConfig) {
     const command = 'INIT';
     try {
+      await Mongo.connect(projectConfig.mongo);
       if (trader) {
         await trader.stop();
       }
@@ -120,6 +123,7 @@ async function main() {
     const command = 'STOP';
     try {
       await trader.stop();
+      await Mongo.close();
       send(command, 1, trader);
     } catch (error) {
       throw error;
@@ -134,6 +138,7 @@ async function main() {
     try {
       await trader.stop();
       await trader.delete();
+      await Mongo.close();
       send(command, 1, trader);
     } catch (error) {
       throw error;

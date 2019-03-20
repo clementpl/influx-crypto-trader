@@ -15,10 +15,7 @@ export class Mongo {
     Mongo.URL = `mongodb://${conf.host}:${conf.port}/${conf.database}`;
     // connect
     try {
-      await mongoose.connect(
-        Mongo.URL,
-        { useNewUrlParser: true }
-      );
+      await mongoose.connect(Mongo.URL, { useNewUrlParser: true });
       logger.info(`[MONGODB] Connection successful: ${Mongo.URL}`);
     } catch (error) {
       logger.error(new Error(`[MONGODB] Connection error: ${Mongo.URL}`));

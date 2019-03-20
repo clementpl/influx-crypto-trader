@@ -13,6 +13,7 @@ import { flatten, requireUncached } from '../helpers';
 
 export interface TraderConfig {
   name: string;
+  silent?: boolean;
   env: EnvConfig;
   strategie: string;
   stratOpts: any;

@@ -4,6 +4,7 @@ import { Schema, model, Document } from 'mongoose';
 const TraderSchema = new Schema(
   {
     name: String,
+    silent: Boolean,
     status: String,
     strategie: String,
     capital: Number,
