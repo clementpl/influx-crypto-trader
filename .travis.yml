@@ -3,16 +3,16 @@ sudo: false
 node_js:
   - 10
 
-#services:
-#  - docker
+services:
+  - docker
 
-#before_install:
-#  - npm run docker-start
+before_install:
+  - bash script/installMarketWatcher.sh
 
 install:
   - npm install
-#script:
-#  - npm test
 
+script:
+  - npm test
 #after_success:
 #  - npm run coverage

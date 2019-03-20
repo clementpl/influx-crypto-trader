@@ -2,12 +2,13 @@
   "name": "influx-crypto-trader",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "./src/index.ts",
   "scripts": {
     "prettier": "prettier --write 'src/**/*.ts'",
+    "coverage": "nyc report --reporter=text-lcov | coveralls",
     "pretest": "node_modules/tslint/bin/tslint --project .",
-    "test": "echo \"TEST TODO\"",
-    "start": "NODE_OPTIONS=\"--max_old_space_size=4096\" ts-node --files -P ./tsconfig.json ./src/index.ts"
+    "test": "NODE_ENV=TEST ts-mocha -r tsconfig-paths/register --timeout 60000 -P ./tsconfig.json test/index.ts",
+    "start": "ts-node -P ./tsconfig.json -r tsconfig-paths/register ./src/index.ts"
   },
   "author": "",
   "license": "ISC",
@@ -39,6 +40,7 @@
   "devDependencies": {
     "@types/chai": "^4.1.7",
     "@types/chai-http": "^3.0.5",
+    "@types/expect": "^1.20.4",
     "@types/hapi": "^17.8.0",
     "@types/joi": "^14.0.0",
     "@types/mathjs": "^4.4.4",
@@ -49,8 +51,12 @@
     "@types/regression": "^2.0.0",
     "chai": "^4.2.0",
     "chai-http": "^4.2.1",
+    "coveralls": "^3.0.3",
     "mocha": "^6.0.2",
-    "ts-node": "^7.0.1",
+    "nyc": "^13.3.0",
+    "ts-mocha": "^6.0.0",
+    "ts-node": "^8.0.3",
+    "tsconfig-paths": "^3.8.0",
     "tslint": "^5.11.0",
     "tslint-config-prettier": "^1.16.0",
     "tslint-config-standard": "^8.0.1",
