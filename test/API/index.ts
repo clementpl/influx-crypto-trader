@@ -18,7 +18,7 @@ describe('CRUD Traders', () => {
     return (server = await startServer());
   });
 
-  it('it should get 0 traders', done => {
+  it('Get traders (should fetch 0 traders)', done => {
     chai
       .request(server.listener)
       .get('/traders')
@@ -29,7 +29,7 @@ describe('CRUD Traders', () => {
       });
   });
 
-  it('it should create a new trader and backtest it on 5 minutes (BTC/USDT)', done => {
+  it('Create a new trader and backtest it on 5 minutes (BTC/USDT)', done => {
     const traderConf = getTraderConfig('wait');
     traderConf.silent = true;
     traderConf.env.backtest = {
@@ -48,7 +48,7 @@ describe('CRUD Traders', () => {
       });
   });
 
-  it('it should create a new trader streaming', done => {
+  it('Create a trader (streaming)', done => {
     const traderConf = getTraderConfig('wait');
     traderConf.name = 'test_streaming';
     traderConf.silent = true;
@@ -66,28 +66,38 @@ describe('CRUD Traders', () => {
         let resp = await chai.request(server.listener).get('/traders');
         chai.expect(resp.body.length).equal(1);
         chai.expect(resp.body[0].status).equal('RUNNING');
-        // delete it
-        await chai.request(server.listener).del(`/traders/${traderConf.name}`);
-        // Check if trader delete from mongo
-        resp = await chai.request(server.listener).get('/traders');
-        chai.expect(resp.body.length).equal(0);
-
         done();
       });
   });
 
-  /*
-    it('it should fetch 2 watchers running', done => {});
+  it('Fetch trader test_streaming', done => {
+    const traderConfName = 'test_streaming';
+    chai
+      .request(server.listener)
+      .get(`/traders/${traderConfName}`)
+      .end(async (err, res) => {
+        res.should.have.status(200);
+        chai.expect(res.body.status).equal('RUNNING');
+        done();
+      });
+  });
 
-    it('it should stop every watchers', done => {});
-
-    it('it should restart every watchers', done => {});
-
-    it('it should delete every watchers', done => {});
-    */
-});
-
-after(async () => {
-  await stopServer();
-  logger.silent = false;
+  it('Delete trader test_streaming', done => {
+    const traderConfName = 'test_streaming';
+    // delete it
+    chai
+      .request(server.listener)
+      .del(`/traders/${traderConfName}`)
+      .end(async (err, res) => {
+        res.should.have.status(200);
+        // Check if trader delete from mongo
+        const resp = await chai.request(server.listener).get('/traders');
+        chai.expect(resp.body.length).equal(0);
+        done();
+      });
+  });
+  after(async () => {
+    await stopServer();
+    logger.silent = false;
+  });
 });
