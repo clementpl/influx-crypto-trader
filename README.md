@@ -1,4 +1,4 @@
-# influx crypto trader [![Build Status](https://travis-ci.org/clementpl/influx-crypto-trader.svg?branch=master)](https://travis-ci.org/clementpl/influx-crypto-trader)
+# influx crypto trader [![Build Status](https://travis-ci.org/clementpl/influx-crypto-trader.svg?branch=master)](https://travis-ci.org/clementpl/influx-crypto-trader) [![Coverage Status](https://coveralls.io/repos/github/clementpl/influx-crypto-trader/badge.svg?branch=master)](https://coveralls.io/github/clementpl/influx-crypto-trader?branch=master)
 
 ## Description
 
