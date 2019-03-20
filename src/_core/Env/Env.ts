@@ -5,6 +5,11 @@ import { Influx, OHLCVTags, OHLCV } from '@core/Influx/Influx';
 import { sleep } from '@core/helpers';
 import { CandleSet } from './CandleSet';
 
+export interface PluginConfig {
+  label: string;
+  opts: { name: string; [name: string]: any };
+}
+
 export interface EnvConfig {
   watchList: OHLCVTags[]; // List of currency to watch, base/quote/exchange
   batchSize?: number; // Number of candle Fetch every request
@@ -19,7 +24,7 @@ export interface EnvConfig {
   // At each minutes you receive the updated candle (time didn't change but value does)
   aggTimes: string[];
   // Indicator plugins
-  candleSetPlugins?: Array<{ label: string; opts: { [name: string]: string } }>;
+  candleSetPlugins?: Array<{ label: string; opts: { name: string; [name: string]: any } }>;
 }
 
 export class Env {
@@ -204,7 +209,8 @@ export class Env {
    * @memberof Env
    */
   private async loadWarmup(start: string | moment.Moment, warmup: number): Promise<void> {
-    start = moment(start);
+    // load warmup size data point (stricly before start)
+    start = moment(start).subtract(1, 'm');
     const batchSize = this.conf.batchSize as number;
     try {
       for (const tags of this.conf.watchList) {
