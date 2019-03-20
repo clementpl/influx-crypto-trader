@@ -7,7 +7,9 @@ import { Candle } from '@src/_core/Env/Candle';
  * Test traderWorker
  */
 describe('Trader', () => {
-  before(async () => {});
+  before(async () => {
+    logger.silent = true;
+  });
 
   it('Create and run a trader doing a wait strategy for 5 minutes (BTC/USDT)', done => {
     async function testit() {
@@ -16,9 +18,9 @@ describe('Trader', () => {
         start: '2018-02-20T00:00:00Z',
         stop: '2018-02-20T00:04:00Z',
       };
+      logger.silent = true;
       // Init trader
       const trader = new Trader(traderConf);
-      logger.silent = true;
       await trader.init();
       // Change strategy to count every call
       let countStratCall = 0;
@@ -38,8 +40,8 @@ describe('Trader', () => {
       };
       await trader.start();
       await trader.stop();
-      logger.silent = false;
 
+      logger.silent = false;
       // Check portfolio coherence
       chai.expect(trader.portfolio.indicators.currentCapital).equal(traderConf.capital);
       chai.expect(trader.portfolio.indicators.currentProfit).equal(0);
@@ -61,21 +63,19 @@ describe('Trader', () => {
     testit().then(() => done());
   });
 
-  /* PROBLEM when loading worker file
   it('Create and run a trader WORKER doing a wait strategy for 5 minutes (BTC/USDT)', done => {
     async function testit() {
       const traderConf = getTraderConfig('wait');
+      traderConf.silent = true;
       traderConf.env.backtest = {
         start: '2018-02-20T00:00:00Z',
         stop: '2018-02-20T00:04:00Z',
       };
       // Init trader
       const trader = new TraderWorker(traderConf);
-      logger.silent = true;
       await trader.init();
       await trader.start();
       await trader.stop();
-      logger.silent = false;
 
       // Check portfolio coherence
       chai.expect(trader.trader.portfolio.indicators.currentCapital).equal(traderConf.capital);
@@ -84,7 +84,7 @@ describe('Trader', () => {
       chai.expect(trader.trader.portfolio.indicators.totalValue).equal(traderConf.capital);
     }
     testit().then(() => done());
-  });*/
+  });
 
   it('Create and run a trader doing a buy and a sell (BTC/USDT)', done => {
     async function testit() {
@@ -128,5 +128,7 @@ describe('Trader', () => {
     testit().then(() => done());
   });
 
-  after(async () => {});
+  after(async () => {
+    logger.silent = false;
+  });
 });

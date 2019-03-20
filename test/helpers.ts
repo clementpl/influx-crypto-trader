@@ -1,4 +1,6 @@
-export const getTraderConfig = (strat: string) => ({
+import { TraderConfig } from '@src/exports';
+
+export const getTraderConfig = (strat: string): TraderConfig => ({
   name: 'test_trader',
   test: true,
   strategie: `test/${strat}`,

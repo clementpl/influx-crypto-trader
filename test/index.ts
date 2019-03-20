@@ -1,4 +1,4 @@
-import { logger } from '../src/logger';
+import { logger } from '@src/logger';
 
 logger.silent = false;
 
@@ -10,5 +10,5 @@ function importTest(name: string, path: string[]): void {
 
 describe('UNIT TEST', () => {
   importTest('CORE', ['./CORE/trader.ts', './CORE/indicators.ts']);
-  // importTest('API', './API/index.ts');
+  importTest('API', ['./API/index.ts']);
 });
