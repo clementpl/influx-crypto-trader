@@ -9,14 +9,16 @@ const traderPayload: any = {
   base: Joi.string().required(),
   quote: Joi.string().required(),
   env: {
-    watchList: Joi.any(),
-    warmup: Joi.number(),
-    batchSize: Joi.number(),
-    bufferSize: Joi.number(),
+    watchList: Joi.any().required(),
+    warmup: Joi.number().optional(),
+    batchSize: Joi.number().optional(),
+    bufferSize: Joi.number().optional(),
     backtest: {
       start: Joi.string().required(),
       stop: Joi.string().required(),
     },
+    aggTimes: Joi.array().optional(),
+    candleSetPlugins: Joi.array().optional(),
   },
   exchange: {
     name: Joi.string().required(),

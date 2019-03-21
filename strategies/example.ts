@@ -1,6 +1,6 @@
-import { CandleSet } from '../src/_core/Env/CandleSet';
-import { Trader } from '../src/exports';
-import { Candle } from '_core/Env/Candle';
+import { CandleSet } from '@src/_core/Env/CandleSet';
+import { Trader } from '@src/exports';
+import { Candle } from '@core/Env/Candle';
 
 // static give number of order running
 let nbOrder = 0;
