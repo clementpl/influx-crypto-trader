@@ -108,15 +108,16 @@ export class Portfolio {
    * @memberof Portfolio
    */
   public notifyBuy(order: Order): void {
-    this.indicators.currentCapital -= order.cost + order.fee;
+    // on Buy currentCapital decrease by the cost (fees cost is include in it so no need to add it again)
+    this.indicators.currentCapital -= order.cost /* + order.fee.cost*/;
     this.indicators.assetCapital += order.filled;
-    this.indicators.fees += order.fee;
+    this.indicators.fees += order.fee.cost;
     this.buyBuffer.push({
       time: order.timestamp,
       values: {
         price: order.price,
         cost: order.cost,
-        fee: order.fee,
+        fee: order.fee.cost,
         amount: order.amount,
       },
     });
@@ -135,15 +136,15 @@ export class Portfolio {
    * @memberof Portfolio
    */
   public notifySell(order: Order): void {
-    this.indicators.currentCapital += order.cost - order.fee;
+    this.indicators.currentCapital += order.cost - order.fee.cost;
     this.indicators.assetCapital -= order.filled;
-    this.indicators.fees += order.fee;
+    this.indicators.fees += order.fee.cost;
     this.sellBuffer.push({
       time: order.timestamp,
       values: {
         price: order.price,
         cost: order.cost,
-        fee: order.fee,
+        fee: order.fee.cost,
         amount: order.amount,
       },
     });
@@ -151,7 +152,8 @@ export class Portfolio {
     this.trade!.orderSell = order;
     // Profit % => (SellPrice - BuyPrice (-fees)) / BuyPrice
     this.trade!.orderProfit =
-      (order.cost - this.trade!.orderBuy.cost - (this.trade!.orderBuy.fee + order.fee)) / this.trade!.orderBuy.cost;
+      (order.cost - this.trade!.orderBuy.cost - (this.trade!.orderBuy.fee.cost + order.fee.cost)) /
+      this.trade!.orderBuy.cost;
     this.tradeHistory.pop();
     this.pushTrade();
     this.trade = undefined;
@@ -169,7 +171,7 @@ export class Portfolio {
     if (this.trade) {
       // this.trade.orderProfit = (lastCandle.close - this.trade.orderBuy.price) / this.trade.orderBuy.price;
       this.trade.orderProfit =
-        (lastCandle.close * this.trade.orderBuy.filled - this.trade.orderBuy.cost - this.trade.orderBuy.fee) /
+        (lastCandle.close * this.trade.orderBuy.filled - this.trade.orderBuy.cost - this.trade.orderBuy.fee.cost) /
         this.trade.orderBuy.cost;
     }
     // If first call to Update (init buffer serie)

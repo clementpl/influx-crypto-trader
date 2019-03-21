@@ -31,14 +31,15 @@ export const logger = winston.createLogger({
     }),
   ],
   format: format(true),
-  exitOnError: false, // do not exit on handled exceptions
+  exitOnError: true, // do not exit on handled exceptions
 });
 
 // Call exceptions.handle with a transport to handle exceptions
+logger.exceptions.
 logger.exceptions.handle(
   new winston.transports.File({
     format: format(),
     filename: resolvePath(config.log.errorPath),
   }),
-  new winston.transports.Console()
+  new winston.transports.Console(),
 );

@@ -8,21 +8,9 @@ export interface ExchangeConfig {
   apiSecret?: string;
   fees?: number;
 }
-/*
-export interface Order {
-  market: string; // 'BNBETH'
-  orderId: string; // 4480553
-  transactTime: number; //1509049376261,
-  price: number; //'0.00000000',
-  origQty: number; //'1.00000000',
-  exeutedQty: number; //'1.00000000',
-  status: string; //'FILLED',
-  type: string; //'MARKET',
-  side: string; //'BUY'
-}
-*/
+
 /**
- * Exchange interface
+ * Exchange class abstract the ccxt library and add a TEST mode (fake order)
  *
  * @export
  * @interface Exchange
@@ -41,11 +29,22 @@ export class Exchange {
     this.config.fees = this.config.fees || 0.001;
   }
 
+  /**
+   * Fetch exchange markets informations (fees, min/max amount invest)
+   *
+   * @param {string} base
+   * @param {string} quote
+   * @returns {Promise<ccxt.Market>}
+   * @memberof Exchange
+   */
   public async getExchangeInfo(base: string, quote: string): Promise<ccxt.Market> {
     if (!this.marketsInfo) {
-      this.marketsInfo = await this.exchange.fetchMarkets().catch(error => {
+      const errorHandler = (error: Error) => {
         throw error;
-      });
+      };
+      // Load markets
+      await this.exchange.loadMarkets().catch(errorHandler);
+      this.marketsInfo = await this.exchange.fetchMarkets().catch(errorHandler);
     }
     const symbol = `${base}${quote}`;
     const markets = this.marketsInfo.filter(market => market.id === symbol);
@@ -53,16 +52,28 @@ export class Exchange {
     return markets[0];
   }
 
+  /**
+   * BuyMarket order
+   * Follow ccxt.Order type definition
+   *
+   * @param {string} base
+   * @param {string} quote
+   * @param {number} amount
+   * @param {Candle} lastCandle
+   * @returns {Promise<ccxt.Order>}
+   * @memberof Exchange
+   */
   public async buyMarket(base: string, quote: string, amount: number, lastCandle: Candle): Promise<ccxt.Order> {
     if (this.config.test) {
       const cost: number = +(lastCandle.close * amount).toFixed(8);
-      const fee: number = <number>this.config.fees;
+      const fee: number = this.config.fees!;
       // Recalculate amount substracting fees
       // amount = +(amount - amount * fee).toFixed(8);
       return {
         id: '1111111',
         info: {},
         timestamp: lastCandle.time,
+        lastTradeTimestamp: lastCandle.time,
         datetime: new Date(lastCandle.time).toISOString(),
         status: 'closed',
         symbol: base + '/' + quote,
@@ -73,9 +84,11 @@ export class Exchange {
         amount,
         filled: amount,
         remaining: 0,
-        fee: +(fee * cost).toFixed(8),
+        fee: this.calculateFee('buy', base, quote, amount, cost),
+        trades: [this.createTradeExecution('buy', base, quote, amount, lastCandle, cost)],
       };
     }
+
     // tslint:disable-next-line
     return await this.exchange
       .createMarketBuyOrder(base + '/' + quote, amount, { test: this.config.test })
@@ -84,14 +97,26 @@ export class Exchange {
       });
   }
 
+  /**
+   * SellMarket order
+   * Follow ccxt.Order type definition
+   *
+   * @param {string} base
+   * @param {string} quote
+   * @param {number} amount
+   * @param {Candle} lastCandle
+   * @returns {Promise<ccxt.Order>}
+   * @memberof Exchange
+   */
   public async sellMarket(base: string, quote: string, amount: number, lastCandle: Candle): Promise<ccxt.Order> {
     if (this.config.test) {
       const cost: number = +(lastCandle.close * amount).toFixed(8);
-      const fee: number = <number>this.config.fees;
+      const fee: number = this.config.fees!;
       return {
         id: '1111111',
         info: {},
         timestamp: lastCandle.time,
+        lastTradeTimestamp: lastCandle.time,
         datetime: new Date(lastCandle.time).toISOString(),
         status: 'closed',
         symbol: base + '/' + quote,
@@ -102,14 +127,83 @@ export class Exchange {
         amount,
         filled: amount,
         remaining: 0,
-        fee: +(fee * cost).toFixed(8), // TODO ADD FEE
+        fee: this.calculateFee('buy', base, quote, amount, cost),
+        trades: [this.createTradeExecution('buy', base, quote, amount, lastCandle, cost)],
       };
     }
+
     // tslint:disable-next-line
     return await this.exchange
       .createMarketSellOrder(base + '/' + quote, amount, { test: this.config.test })
       .catch((error: any) => {
         throw error;
       });
+  }
+
+  /**
+   * Calculate fees
+   * Follow ccxt.Fee type definition
+   *
+   * @private
+   * @param {string} side
+   * @param {string} base
+   * @param {string} quote
+   * @param {number} amount
+   * @param {Candle} lastCandle
+   * @param {number} cost
+   * @returns {ccxt.Fee}
+   * @memberof Exchange
+   */
+  private calculateFee(side: string, base: string, quote: string, amount: number, cost: number): ccxt.Fee {
+    const type = side === 'buy' ? 'maker' : 'taker';
+    return {
+      type, // Taker or maker (side)
+      currency: quote, // which currency the fee is (usually quote)
+      cost: +(this.config.fees! * cost).toFixed(8), // the fee amount in that currency
+      rate: this.config.fees!, // the fee rate (if available)
+    };
+    // TODO
+    // Maybe use the ccxt function later (but onBuy return the cost in BTC and onSell in USDT)
+    // Will be better with every cost convert to the QUOTE currency
+    // return this.exchange.calculateFee(base + '/' + quote, type, side, amount, lastCandle.close, type);
+  }
+
+  /**
+   * Create a trade execution (one trade can be divide in multiple trade/order Execution)
+   * Follow ccxt.Trade type definition
+   *
+   * @private
+   * @param {string} side
+   * @param {string} base
+   * @param {string} quote
+   * @param {number} amount
+   * @param {Candle} lastCandle
+   * @param {number} cost
+   * @returns {ccxt.Trade}
+   * @memberof Exchange
+   */
+  private createTradeExecution(
+    side: string,
+    base: string,
+    quote: string,
+    amount: number,
+    lastCandle: Candle,
+    cost: number
+  ): ccxt.Trade {
+    return {
+      amount, // amount of base currency
+      datetime: new Date(lastCandle.time).toISOString(), // ISO8601 datetime with milliseconds;
+      id: '1111', // string trade id
+      info: {}, // the original decoded JSON as is
+      // order?: ;                  // string order id or undefined/None/null
+      price: lastCandle.close, // float price in quote currency
+      timestamp: lastCandle.time, // Unix timestamp in milliseconds
+      type: 'market', // order type, 'market', 'limit' or undefined/None/null
+      side: <any>side, // direction of the trade, 'buy' or 'sell'
+      symbol: base + '/' + quote, // symbol in CCXT format
+      takerOrMaker: side === 'buy' ? 'maker' : 'taker', // string, 'taker' or 'maker'
+      cost, // total cost (including fees), `price * amount`
+      fee: this.calculateFee(side, base, quote, amount, cost),
+    };
   }
 }
