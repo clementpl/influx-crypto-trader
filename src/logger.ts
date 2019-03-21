@@ -39,5 +39,6 @@ logger.exceptions.handle(
   new winston.transports.File({
     format: format(),
     filename: resolvePath(config.log.errorPath),
-  })
+  }),
+  new winston.transports.Console()
 );
