@@ -6,7 +6,7 @@
   "influx": {
     "host": "localhost",
     "port": 8086,
-    "stockDatabase": "dev_crypto_series",
+    "stockDatabase": "test_crypto_series",
     "eventDatabase": "test_crypto_signals",
     "traderDatabase": "test_crypto_portfolio"
   },
