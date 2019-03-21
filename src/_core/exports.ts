@@ -3,6 +3,7 @@ export * from './Influx/Influx';
 export * from './Influx/constants';
 // DataSet
 export * from './Env/CandleSet';
+export * from './Env/Candle';
 export * from './Env/Env';
 // Trader export
 export * from './Trader/model';
