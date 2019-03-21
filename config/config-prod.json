@@ -8,7 +8,7 @@
     "port": 8086,
     "stockDatabase": "prod_crypto_series",
     "eventDatabase": "prod_crypto_signals",
-    "traderDatabase": "prod_crypto_portfolio"
+    "traderDatabase": "prod_crypto_trader"
   },
   "mongo": {
     "host": "localhost",
