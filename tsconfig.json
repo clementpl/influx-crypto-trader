@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "typeRoots": ["./node_modules/@types"],
     "module": "commonjs",
     "moduleResolution": "node",
     "target": "es6",
@@ -19,6 +20,6 @@
     "sourceMap": true,
     "resolveJsonModule": true
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "config/*.json", "config/*.ts", "strategies/*.ts"],
+  "include": ["src/**/*.ts", "test/**/*.ts", "config/*.json", "config/*.ts", "strategies/**/*.ts"],
   "exclude": ["./node_modules"]
 }
