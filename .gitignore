@@ -8,4 +8,5 @@ package-lock.json
 log/
 dist/
 strategies/
+strategiesProd/
 optimizer/
