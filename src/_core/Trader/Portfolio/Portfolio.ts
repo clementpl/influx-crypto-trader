@@ -48,7 +48,7 @@ export class Portfolio {
    *  - BACKTEST => will flush data to influxDB every 5 secondes
    *  - STREAMING => will flush every minutes "normal behavior"
    */
-  private flushTimeout = 5;
+  private flushTimeout = 10;
   private lastFlushTime: number = new Date().getTime();
   private updateBuffer: any[] = [];
   private buyBuffer: any[] = [];
@@ -64,9 +64,9 @@ export class Portfolio {
    * @returns {Promise<void>}
    * @memberof Portfolio
    */
-  public async init(influx: Influx): Promise<void> {
+  public async init(influx: Influx, flush: boolean = true): Promise<void> {
     this.influx = influx;
-    await this.cleanInflux();
+    if (flush) await this.cleanInflux();
     this.hasInitSeries = false;
     this.reset();
   }
@@ -212,19 +212,22 @@ export class Portfolio {
     // - Backtest every 5 second
     // - Streaming every minutes "normal behavior"
     if (force || moment().diff(moment(this.lastFlushTime), 's') >= this.flushTimeout) {
-      const catchHelper = (error: Error) => {
-        logger.error(error);
-        throw new Error('Problem while saving portfolio state to influx');
-      };
       // Write async (update/buy/sell)
       const tags = { name: this.conf.name };
-      await this.influx.writeData(tags, this.updateBuffer, MEASUREMENT_PORTFOLIO).catch(catchHelper);
-      await this.influx.writeData({ ...tags, side: 'buy' }, this.buyBuffer, MEASUREMENT_TRADES).catch(catchHelper);
-      await this.influx.writeData({ ...tags, side: 'sell' }, this.sellBuffer, MEASUREMENT_TRADES).catch(catchHelper);
+      try {
+        await this.influx.writeData(tags, this.updateBuffer, MEASUREMENT_PORTFOLIO);
+        await this.influx.writeData({ ...tags, side: 'buy' }, this.buyBuffer, MEASUREMENT_TRADES);
+        await this.influx.writeData({ ...tags, side: 'sell' }, this.sellBuffer, MEASUREMENT_TRADES);
+        this.updateBuffer = [];
+        this.buyBuffer = [];
+        this.sellBuffer = [];
+      } catch(error) {
+        logger.error(error);
+        logger.error(new Error(`[${this.conf.name}] Problem while saving portfolio state to influx`));
+        // throw new Error('Problem while saving portfolio state to influx');
+      }
+      // reset flush time (even if error, will try to flush again later)
       this.lastFlushTime = new Date().getTime();
-      this.updateBuffer = [];
-      this.buyBuffer = [];
-      this.sellBuffer = [];
     }
   }
 

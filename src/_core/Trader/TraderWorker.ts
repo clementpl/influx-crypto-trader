@@ -127,7 +127,7 @@ export class TraderWorker {
       command,
       args,
     });
-    if (!this.traderProcess) throw Error(`No trader process running ${this.config.name} (should init first)`);
+    // if (!this.traderProcess) throw Error(`No trader process running ${this.config.name} (should init first)`);
     this.traderProcess.send(payload);
   }
 

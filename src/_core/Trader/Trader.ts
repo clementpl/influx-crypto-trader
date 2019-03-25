@@ -14,6 +14,7 @@ import { flatten, requireUncached } from '../helpers';
 export interface TraderConfig {
   name: string;
   silent?: boolean;
+  flush?: boolean;
   env: EnvConfig;
   strategie: string;
   stratOpts: any;
@@ -63,6 +64,7 @@ export class Trader {
   private shouldStop: boolean = false;
   // Buffer for writing candles data (with indicators) to influxDB
   private bufferInputs: any[] = [];
+  private flushTimeout = 10;
   private lastBufferFlush: moment.Moment = moment();
 
   constructor(public config: TraderConfig) {
@@ -94,7 +96,7 @@ export class Trader {
       // Init Env
       this.env = new Env(this.config.env);
       this.influx = await this.env.init();
-      await this.cleanInflux();
+      if (this.config.flush) await this.cleanInflux();
       // Init exchange
       this.exchange = new Exchange({
         name: this.config.exchange.name,
@@ -109,7 +111,7 @@ export class Trader {
         exchange: this.config.exchange.name,
         backtest: this.config.env.backtest ? true : false,
       });
-      await this.portfolio.init(this.influx);
+      await this.portfolio.init(this.influx, this.config.flush);
     } catch (error) {
       logger.error(error);
       throw new Error(`[${this.config.name}] Problem during trader initialization`);
@@ -154,15 +156,14 @@ export class Trader {
       let candleSet: CandleSet | undefined = <CandleSet>data.value;
       let lastCandle = <Candle>candleSet.getLast(this.symbol);
       while (!this.shouldStop && !data.done) {
-        // console.time('begin');
         this.checkTrader();
         // Push indicators to bufferInputs (will write it to influx)
         if (Object.keys(lastCandle.indicators || {}).length > 0) {
           // TODO Write multiple INPUT serie (ETH,BTC, ETH15m, BTC15m, ...)
+          // this.env.watchers.forEach ...
           this.bufferInputs.push({
             time: lastCandle.time,
             values: flatten(lastCandle.indicators),
-            // tags: ... TODO add aggTimes (loop over it and push with)
           });
         }
         // Update portfolio with new candle
@@ -197,7 +198,7 @@ export class Trader {
         if (data.value) {
           candleSet = <CandleSet>data.value;
           lastCandle = <Candle>candleSet.getLast(this.symbol);
-        } // else candleSet = undefined;
+        }
       }
 
       if (this.strategy.afterAll) await this.strategy.afterAll(candleSet, this, this.config.stratOpts);
@@ -348,17 +349,22 @@ export class Trader {
    * @memberof Trader
    */
   private async flushInputs(force: boolean = false): Promise<void> {
-    try {
-      // If data to write and more than 5 second since last save (or force=true)
-      if (this.bufferInputs.length > 0 && (force || Math.abs(moment().diff(this.lastBufferFlush, 's')) > 5)) {
-        await this.influx.writeData({ name: this.config.name }, this.bufferInputs, MEASUREMENT_INPUTS);
+    // If data to write and more than 5 second since last save (or force=true)
+    if (
+      this.bufferInputs.length > 0 &&
+      (force || Math.abs(moment().diff(this.lastBufferFlush, 's')) > this.flushTimeout)
+    ) {
+      try {
         await this.influx.writeData({ name: this.config.name }, this.bufferInputs, MEASUREMENT_INPUTS);
         this.bufferInputs = [];
-        this.lastBufferFlush = moment();
+      } catch (error) {
+        logger.error(error);
+        logger.error(
+          new Error(`[${this.config.name}] Error while saving candles to measurement ${MEASUREMENT_INPUTS}`)
+        );
       }
-    } catch (error) {
-      logger.error(error);
-      logger.error(new Error(`[${this.config.name}] Error while saving candles to measurement ${MEASUREMENT_INPUTS}`));
+      // Reset timeout (even if error)
+      this.lastBufferFlush = moment();
     }
   }
 
