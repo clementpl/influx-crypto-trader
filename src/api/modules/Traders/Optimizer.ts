@@ -6,11 +6,13 @@ import { logger, TraderWorker, TraderConfig } from '../../../../src/exports';
 import { deepFind } from '../../../_core/helpers';
 
 interface GeneticOpts {
+  silent: boolean;
   threads: number;
   generation: number;
   popSize: number;
   elitism: number;
   mutationRate: number;
+  envs: Array<{ start: string; stop: string }>;
   genes: Gene[];
 }
 
@@ -47,12 +49,41 @@ function randomIndiv(traderConfig: TraderConfig, opts: GeneticOpts, gen: number,
   opts.genes.forEach(g => {
     newOpts[g.key] = randomBetween(g.min, g.max, g.integer);
   });
-  return createTraderWorker(traderConfig, `${traderConfig.name}-gen${gen}-ind${ind}`, newOpts);
+  return createTraderWorker(traderConfig, `${traderConfig.name}-gen${gen}-ind${ind}`, newOpts, opts.silent);
 }
 
 function getFitness(trader: TraderWorker): number {
-  const currentProfit = deepFind(trader, 'trader.portfolio.indicators.currentProfit');
-  return currentProfit === undefined ? -1 : currentProfit;
+  // const currentProfit = deepFind(trader, 'trader.portfolio.indicators.currentProfit');
+  // return currentProfit === undefined ? -1 : currentProfit;
+  let sum = 0;
+  // for (let i = 0; i < (<any>trader).fitnesses.length; i++) {
+  // console.log((<any>trader).fitnesses);
+  for (const fitness of (<any>trader).fitnesses) {
+    sum += fitness.total;
+  }
+  return sum / (<any>trader).fitnesses.length;
+}
+
+function calcFitness(
+  trader: TraderWorker
+): { currentProfit: number; percentTradeWin: number; tradeFreqency: number; total: number } {
+  let currentProfit = deepFind(trader, 'trader.portfolio.indicators.currentProfit');
+  currentProfit = currentProfit === undefined || currentProfit === 0 ? -1 : currentProfit;
+  const tradeHistory = deepFind(trader, 'trader.portfolio.tradeHistory') || [];
+  const percentTradeWin =
+    tradeHistory.length === 0
+      ? 0
+      : tradeHistory.filter((trade: any) => trade.orderProfit > 0).length / tradeHistory.length;
+  const { start, stop } = trader.config.env.backtest!;
+  const limit = Math.floor(daysBetween(new Date(start), new Date(stop)) / 3);
+  let tradeFreqency = tradeHistory.length / limit === 0 ? 1 : limit;
+  tradeFreqency = tradeFreqency > 1 ? 1 : tradeFreqency;
+  return {
+    currentProfit,
+    percentTradeWin,
+    tradeFreqency,
+    total: currentProfit + percentTradeWin + tradeFreqency,
+  };
 }
 
 function mutate(
@@ -73,7 +104,7 @@ function mutate(
     const newVal = oldOpts[g.key] + diff;
     if (randomBetween(0, 1) <= opts.mutationRate) newOpts[g.key] = g.integer ? Math.floor(newVal) : newVal;
   });
-  return createTraderWorker(traderConfig, `${traderConfig.name}-gen${gen}-ind${ind}`, newOpts);
+  return createTraderWorker(traderConfig, `${traderConfig.name}-gen${gen}-ind${ind}`, newOpts, opts.silent);
 }
 
 function crossover(name: string, traderA: TraderWorker, traderB: TraderWorker, opts: GeneticOpts): TraderWorker {
@@ -89,7 +120,7 @@ function crossover(name: string, traderA: TraderWorker, traderB: TraderWorker, o
       if (randomBetween(0, 1) <= opts.mutationRate) newOpts[g.key] = randomBetween(g.min, g.max, g.integer);
     });
   }
-  return createTraderWorker(traderA.trader.config, name, newOpts);
+  return createTraderWorker(traderA.trader.config, name, newOpts, opts.silent);
 }
 
 function breedNewGeneration(
@@ -99,9 +130,22 @@ function breedNewGeneration(
   gen: number
 ): TraderWorker[] {
   const newGeneration: TraderWorker[] = [];
-  // sort by fitness
+  // sort by fitness (but keep only different fitness at the top => try to avoid same indiv convergence)
   generation = generation.sort((a: any, b: any) => getFitness(b) - getFitness(a));
-  // keep best indiv (unchanged)
+  const generationResort: TraderWorker[] = [];
+  let currentIdx = 1;
+  generation.forEach((indiv, idx) => {
+    // keep best indiv (first one)
+    if (idx === 0) generationResort.push(indiv);
+    else {
+      // If same fitness push back
+      if (getFitness(indiv) - getFitness(generation[idx - 1]) === 0) generationResort.push(indiv);
+      // Else push front
+      else generationResort.splice(currentIdx++, 0, indiv);
+    }
+  });
+  generation = generationResort;
+  // keep best indiv
   const bestIndivs = generation.slice(0, opts.elitism);
   for (const bestIndiv of bestIndivs) {
     // just rename best indiv with new name (will not rerun)
@@ -112,7 +156,7 @@ function breedNewGeneration(
     } else {
       // Mutate indiv or keep it unmutate
       const indiv =
-        randomBetween(0, 1) < 0.5 ? mutate(traderConfig, bestIndiv, opts, gen, newGeneration.length) : bestIndiv;
+        randomBetween(0, 1) < 0.33 ? mutate(traderConfig, bestIndiv, opts, gen, newGeneration.length) : bestIndiv;
       newGeneration.push(indiv);
     }
   }
@@ -121,9 +165,11 @@ function breedNewGeneration(
     // crossover 75% chance
     if (randomBetween(0, 1) >= 0.25) {
       // Get parent1 and 2 randomly (Make sure parent1 and 2 are different)
-      const t1 = generation[randomBetween(0, Math.floor(generation.length / 2), true)];
+      /*const t1 = generation[randomBetween(0, Math.floor(generation.length / 2), true)];
       let t2 =
-        generation[randomBetween(0, Math.floor(gen >= 10 ? generation.length - 1 : generation.length / 2), true)];
+        generation[randomBetween(0, Math.floor(gen >= 10 ? generation.length - 1 : generation.length / 2), true)];*/
+      const t1 = generation[randomBetween(0, generation.length - 1, true)];
+      let t2 = generation[randomBetween(0, generation.length - 1, true)];
       while (getFitness(t2) === getFitness(t1)) t2 = generation[randomBetween(0, generation.length - 1, true)];
       // create children
       newGeneration.push(crossover(`${traderConfig.name}-gen${gen}-ind${newGeneration.length}`, t1, t2, opts));
@@ -144,7 +190,12 @@ function makeGeneration(traderConfig: TraderConfig, opts: GeneticOpts, gen: numb
     // Add best indiv (no mutation copy of config)
     if (ind === 0) {
       generation.push(
-        createTraderWorker(traderConfig, `${traderConfig.name}-gen${gen}-ind${ind}`, traderConfig.stratOpts)
+        createTraderWorker(
+          traderConfig,
+          `${traderConfig.name}-gen${gen}-ind${ind}`,
+          traderConfig.stratOpts,
+          opts.silent
+        )
       );
     } else {
       generation.push(randomIndiv(traderConfig, opts, gen, ind));
@@ -185,9 +236,15 @@ export class Optimizer {
                   try {
                     // avoid resimulating elite individual
                     if ((<any>t).hasRunned !== true) {
-                      await t.init();
-                      await t.start();
-                      await t.stop();
+                      for (let i = 0; i < opts.envs.length; i++) {
+                        t.config.env.backtest = opts.envs[i];
+                        t.config.flush = i === 0 ? true : false;
+                        await t.init(); // flush only first envs
+                        await t.start();
+                        await t.stop();
+                        if (!(<any>t).fitnesses) (<any>t).fitnesses = [];
+                        (<any>t).fitnesses.push(calcFitness(t));
+                      }
                     }
                     (<any>t).hasRunned = true;
                     resolve();
@@ -236,4 +293,14 @@ export class Optimizer {
       }
     }
   }
+}
+
+// helper
+function daysBetween(date1: Date, date2: Date) {
+  // Get 1 day in milliseconds
+  const oneDay = 1000 * 60 * 60 * 24;
+  // Calculate the difference in milliseconds
+  const diffms = date2.getTime() - date1.getTime();
+  // Convert back to days and return
+  return Math.round(diffms / oneDay);
 }

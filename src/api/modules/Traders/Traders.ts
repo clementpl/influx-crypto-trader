@@ -71,6 +71,7 @@ export class Traders {
     try {
       const { trader, opts } = <any>request.payload;
       Optimizer.genetic(trader, opts).catch(error => logger.error(error));
+      logger.info(`[API] Genetic optimizer for ${trader.name} launch`);
       return success();
     } catch (error) {
       logger.error(error);
