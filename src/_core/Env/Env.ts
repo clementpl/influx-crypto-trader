@@ -115,16 +115,19 @@ export class Env {
           // fetch data
           const ret = await this.influx.getOHLC(tags, {
             aggregatedTime: '1m',
-            limit: batchSize, // this.conf.batchSize,
+            limit: batchSize,
             since: since.utc().format(),
           });
-          // Update data
-          const lastValue = this.candleSet.getLast(Env.makeSymbol(tags));
-          await this.candleSet.push(ret, Env.makeSymbol(tags));
-          const newValue = this.candleSet.getLast(Env.makeSymbol(tags));
-          if (JSON.stringify(newValue) !== JSON.stringify(lastValue)) {
-            hasUpdate = true;
-          }
+          // Update data (if data fetched)
+          if (ret && ret.length > 0) {
+            const lastValue = this.candleSet.getLast(Env.makeSymbol(tags));
+            await this.candleSet.push(ret, Env.makeSymbol(tags));
+            const newValue = this.candleSet.getLast(Env.makeSymbol(tags));
+            // Check if new value inserted
+            if (JSON.stringify(newValue) !== JSON.stringify(lastValue)) {
+              hasUpdate = true;
+            }
+          } else logger.info(`[STREAMING] No data fetched since ${since.utc().format()}`);
         }
         // Yield only if new data detected
         if (hasUpdate) {

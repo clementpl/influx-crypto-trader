@@ -74,6 +74,7 @@ export class Trader {
       quote: this.config.quote,
     });
     this.isBacktesting = config.env.backtest ? true : false;
+    this.config.flush = this.config.flush === false ? false : true;
   }
 
   /**

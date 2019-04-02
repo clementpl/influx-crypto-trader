@@ -2,8 +2,19 @@ import { writeFileSync, mkdirSync } from 'fs';
 import { mean } from 'mathjs';
 import PQueue from 'p-queue';
 
-import { logger, TraderWorker, TraderConfig } from '../../../../src/exports';
+import { logger, TraderWorker as TraderWorkerBase, TraderConfig } from '../../../../src/exports';
 import { deepFind } from '../../../_core/helpers';
+
+class TraderWorker extends TraderWorkerBase {
+  public fitnesses: Array<{
+    currentProfit: number;
+    percentTradeWin: number;
+    tradeFreqency: number;
+    total: number;
+    [name: string]: number;
+  }>;
+  public hasRunned: boolean = false;
+}
 
 interface GeneticOpts {
   silent: boolean;
@@ -52,16 +63,12 @@ function randomIndiv(traderConfig: TraderConfig, opts: GeneticOpts, gen: number,
   return createTraderWorker(traderConfig, `${traderConfig.name}-gen${gen}-ind${ind}`, newOpts, opts.silent);
 }
 
-function getFitness(trader: TraderWorker): number {
-  // const currentProfit = deepFind(trader, 'trader.portfolio.indicators.currentProfit');
-  // return currentProfit === undefined ? -1 : currentProfit;
+function getFitness(trader: TraderWorker, key: string = 'total'): number {
   let sum = 0;
-  // for (let i = 0; i < (<any>trader).fitnesses.length; i++) {
-  // console.log((<any>trader).fitnesses);
-  for (const fitness of (<any>trader).fitnesses) {
-    sum += fitness.total;
+  for (const fitness of trader.fitnesses) {
+    sum += fitness[key];
   }
-  return sum / (<any>trader).fitnesses.length;
+  return sum / trader.fitnesses.length;
 }
 
 function calcFitness(
@@ -73,7 +80,7 @@ function calcFitness(
   const percentTradeWin =
     tradeHistory.length === 0
       ? 0
-      : tradeHistory.filter((trade: any) => trade.orderProfit > 0).length / tradeHistory.length;
+      : tradeHistory.filter((trade: any) => trade.orderProfit > 0.001).length / tradeHistory.length;
   const { start, stop } = trader.config.env.backtest!;
   const limit = Math.floor(daysBetween(new Date(start), new Date(stop)) / 3);
   let tradeFreqency = tradeHistory.length / limit === 0 ? 1 : limit;
@@ -82,7 +89,7 @@ function calcFitness(
     currentProfit,
     percentTradeWin,
     tradeFreqency,
-    total: currentProfit + percentTradeWin + tradeFreqency,
+    total: currentProfit + percentTradeWin /* + tradeFreqency*/,
   };
 }
 
@@ -205,6 +212,7 @@ function makeGeneration(traderConfig: TraderConfig, opts: GeneticOpts, gen: numb
   return generation;
 }
 
+/* tslint:disable */
 export class Optimizer {
   public static runningTraders: TraderWorker[] = [];
   public static pqueue: PQueue;
@@ -235,18 +243,18 @@ export class Optimizer {
                 new Promise(async (resolve, reject) => {
                   try {
                     // avoid resimulating elite individual
-                    if ((<any>t).hasRunned !== true) {
+                    if (t.hasRunned !== true) {
                       for (let i = 0; i < opts.envs.length; i++) {
                         t.config.env.backtest = opts.envs[i];
                         t.config.flush = i === 0 ? true : false;
                         await t.init(); // flush only first envs
                         await t.start();
                         await t.stop();
-                        if (!(<any>t).fitnesses) (<any>t).fitnesses = [];
-                        (<any>t).fitnesses.push(calcFitness(t));
+                        if (!t.fitnesses) t.fitnesses = [];
+                        t.fitnesses.push(calcFitness(t));
                       }
                     }
-                    (<any>t).hasRunned = true;
+                    t.hasRunned = true;
                     resolve();
                   } catch (error) {
                     await t.stop().catch(error => logger.error(error));
@@ -268,7 +276,19 @@ export class Optimizer {
         const g = generation.sort((a: any, b: any) => getFitness(b) - getFitness(a));
         logger.info('RESULT GEN ' + gen);
         const fitnesses = g.map((t: any) => getFitness(t));
-        logger.info(g.map((t: any) => `${t.config.name}: ${getFitness(t)}`).join('\n'));
+        logger.info(
+          g
+            .map((t: TraderWorker) => {
+              const total = getFitness(t);
+              const currentProfit = getFitness(t, 'currentProfit');
+              const percentTradeWin = getFitness(t, 'percentTradeWin');
+              const tradeFreqency = getFitness(t, 'tradeFreqency');
+              return `[${
+                t.config.name
+              }] total: ${total}, currentProfit: ${currentProfit}, percentTradeWin: ${percentTradeWin}, tradeFreqency: ${tradeFreqency} `;
+            })
+            .join('\n')
+        );
         logger.info(
           'mean: ' + mean(...fitnesses) + ' min: ' + Math.min(...fitnesses) + ' max: ' + Math.max(...fitnesses)
         );
@@ -282,7 +302,7 @@ export class Optimizer {
               min: Math.min(...fitnesses),
               max: Math.max(...fitnesses),
             },
-            gen: g.map(t => ({ fitness: getFitness(t), config: t.config.stratOpts })),
+            gen: g.map(t => ({ fitness: t.fitnesses, config: t.config.stratOpts })),
           })}`
         );
         gen++;
