@@ -1,7 +1,6 @@
 node_modules/
 influx-crypto-watcher/
 trash/
-package-lock.json
 .vscode/
 .nyc_output/
 .coveralls.yml
