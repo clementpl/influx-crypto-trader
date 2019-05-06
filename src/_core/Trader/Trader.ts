@@ -94,6 +94,14 @@ export class Trader {
       // beforeAll callback (can be use to change config or set fixed indicator for the strat)
       if (this.strategy.beforeAll) await this.strategy.beforeAll(this.config.env, this, this.config.stratOpts);
 
+      // Smart aggTimes discovery (from plugin)
+      if (this.config.env.candleSetPlugins) {
+        const aggTimePlugins = this.config.env
+          .candleSetPlugins!.map(p => p.opts.aggTime)
+          .filter(agg => agg !== undefined);
+        this.config.env.aggTimes = [...new Set(this.config.env.aggTimes.concat(aggTimePlugins))];
+      }
+
       // Init Env
       this.env = new Env(this.config.env);
       this.influx = await this.env.init();
