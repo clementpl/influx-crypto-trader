@@ -96,9 +96,9 @@ export class Trader {
 
       // Smart aggTimes discovery (from plugin)
       if (this.config.env.candleSetPlugins) {
-        const aggTimePlugins = this.config.env
-          .candleSetPlugins!.map(p => p.opts.aggTime)
-          .filter(agg => agg !== undefined);
+        const aggTimePlugins: any[] = this.config.env
+          .candleSetPlugins.map(p => p.opts.aggTime)
+          .filter(agg => agg);
         this.config.env.aggTimes = [...new Set(this.config.env.aggTimes.concat(aggTimePlugins))];
       }
 
