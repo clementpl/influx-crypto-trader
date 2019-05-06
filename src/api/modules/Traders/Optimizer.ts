@@ -32,6 +32,7 @@ interface Gene {
   min: number;
   max: number;
   integer?: boolean;
+  list?: string[];
 }
 
 function randomBetween(min: number, max: number, integer?: boolean): number {
@@ -58,7 +59,11 @@ function createTraderWorker(
 function randomIndiv(traderConfig: TraderConfig, opts: GeneticOpts, gen: number, ind: number): TraderWorker {
   const newOpts = { ...traderConfig.stratOpts };
   opts.genes.forEach(g => {
-    newOpts[g.key] = randomBetween(g.min, g.max, g.integer);
+    if (g.list) {
+      newOpts[g.key] = g.list[randomBetween(0, g.list.length - 1, true)];
+    } else {
+      newOpts[g.key] = randomBetween(g.min, g.max, g.integer);
+    }
   });
   return createTraderWorker(traderConfig, `${traderConfig.name}-gen${gen}-ind${ind}`, newOpts, opts.silent);
 }
@@ -103,13 +108,22 @@ function mutate(
   const oldOpts = trader.config.stratOpts;
   const newOpts = { ...oldOpts };
   opts.genes.forEach(g => {
-    // if (randomBetween(0, 1) <= opts.mutationRate) newOpts[g.key] = randomBetween(g.min, g.max, g.integer);
-    // Mutation move value between 0.5% to 20%
-    const direction = randomBetween(0, 1, true) === 0 ? -1 : 1;
-    const range = g.max - g.min;
-    const diff = range * randomBetween(0.005, 0.2) * direction;
-    const newVal = oldOpts[g.key] + diff;
-    if (randomBetween(0, 1) <= opts.mutationRate) newOpts[g.key] = g.integer ? Math.floor(newVal) : newVal;
+    // If gene should mutate
+    if (randomBetween(0, 1) <= opts.mutationRate) {
+      // Mutate value from list
+      if (g.list) {
+        newOpts[g.key] = g.list[randomBetween(0, g.list.length - 1, true)];
+      }
+      // Mutate numeric value
+      // Mutation move value between 0.5% to 20%
+      else {
+        const direction = randomBetween(0, 1, true) === 0 ? -1 : 1;
+        const range = g.max - g.min;
+        const diff = range * randomBetween(0.005, 0.2) * direction;
+        const newVal = oldOpts[g.key] + diff;
+        newOpts[g.key] = g.integer ? Math.floor(newVal) : newVal;
+      }
+    }
   });
   return createTraderWorker(traderConfig, `${traderConfig.name}-gen${gen}-ind${ind}`, newOpts, opts.silent);
 }
@@ -119,12 +133,18 @@ function crossover(name: string, traderA: TraderWorker, traderB: TraderWorker, o
   const newOpts = { ...traderB.config.stratOpts };
   // Take some gene of traderA if mutation prob OK
   opts.genes.forEach(g => {
-    if (randomBetween(0, 1) < 0.5) newOpts[g.key] = traderA.config.stratOpts[g.key];
+    if (randomBetween(0, 1) < 0.5) {
+      if (g.list) newOpts[g.key] = g.list[randomBetween(0, g.list.length - 1, true)];
+      else newOpts[g.key] = traderA.config.stratOpts[g.key];
+    }
   });
   // mutate new indiv (25% chance)
   if (randomBetween(0, 1) < 0.25) {
     opts.genes.forEach(g => {
-      if (randomBetween(0, 1) <= opts.mutationRate) newOpts[g.key] = randomBetween(g.min, g.max, g.integer);
+      if (randomBetween(0, 1) <= opts.mutationRate) {
+        if (g.list) newOpts[g.key] = g.list[randomBetween(0, g.list.length - 1, true)];
+        else newOpts[g.key] = randomBetween(g.min, g.max, g.integer);
+      }
     });
   }
   return createTraderWorker(traderA.trader.config, name, newOpts, opts.silent);
