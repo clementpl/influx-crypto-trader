@@ -96,9 +96,7 @@ export class Trader {
 
       // Smart aggTimes discovery (from plugin)
       if (this.config.env.candleSetPlugins) {
-        const aggTimePlugins: any[] = this.config.env
-          .candleSetPlugins.map(p => p.opts.aggTime)
-          .filter(agg => agg);
+        const aggTimePlugins: any[] = this.config.env.candleSetPlugins.map(p => p.opts.aggTime).filter(agg => agg);
         this.config.env.aggTimes = [...new Set(this.config.env.aggTimes.concat(aggTimePlugins))];
       }
 
@@ -160,58 +158,52 @@ export class Trader {
 
       // Get generator and fetch first candles (warmup)
       const fetcher = this.env.getGenerator();
-      let data = await fetcher.next();
-      // Init last candle, candleSet
-      let candleSet: CandleSet | undefined = <CandleSet>data.value;
-      let lastCandle = <Candle>candleSet.getLast(this.symbol);
+      let data: { done: boolean; value: CandleSet | undefined } = { done: false, value: undefined };
+      let candleSet: CandleSet | undefined;
       while (!this.shouldStop && !data.done) {
         this.checkTrader();
-        // Push indicators to bufferInputs (will write it to influx)
-        if (Object.keys(lastCandle.indicators || {}).length > 0) {
-          // TODO Write multiple INPUT serie (ETH,BTC, ETH15m, BTC15m, ...)
-          // this.env.watchers.forEach ...
-          this.bufferInputs.push({
-            time: lastCandle.time,
-            values: flatten(lastCandle.indicators),
-          });
-        }
-        // Update portfolio with new candle
-        await this.portfolio.save(lastCandle);
-        // Persist inputs to influx
-        await this.flushInputs();
-
-        // Before strat callback
-        if (this.strategy.before) await this.strategy.before(candleSet, this, this.config.stratOpts);
-        // Run strategy
-        const advice = await this.strategy.run(candleSet, this, this.config.stratOpts);
-        // Check if advice is correct (cant buy more than one order at a time)
-        const error = this.checkAdvice(advice);
-        // Process advice (if error => wait)
-        if (!error) {
-          if (advice === 'buy') {
-            await this.buy(lastCandle);
-          } else if (advice === 'sell') {
-            await this.sell(lastCandle);
-          }
-        } else {
-          // WAIT
-          logger.info(error);
-        }
-
-        // After strat callback
-        if (this.strategy.after) await this.strategy.after(candleSet, this, this.config.stratOpts);
-
-        // Get next step
+        // Fetch data
         data = await fetcher.next();
-        // Set new candleSet, lastCandle
-        if (data.value) {
-          candleSet = <CandleSet>data.value;
-          lastCandle = <Candle>candleSet.getLast(this.symbol);
+        if (!data.done) {
+          candleSet = data.value as CandleSet;
+          const lastCandle = candleSet.getLast(this.symbol) as Candle;
+          // Push indicators to bufferInputs (will write it to influx)
+          if (Object.keys(lastCandle.indicators || {}).length > 0) {
+            // TODO Write multiple INPUT serie (ETH,BTC, ETH15m, BTC15m, ...)
+            // this.env.watchers.forEach ...
+            this.bufferInputs.push({
+              time: lastCandle.time,
+              values: flatten(lastCandle.indicators),
+            });
+          }
+          // Update portfolio with new candle
+          await this.portfolio.save(lastCandle);
+          // Persist inputs to influx
+          await this.flushInputs();
+
+          // Before strat callback
+          if (this.strategy.before) await this.strategy.before(candleSet, this, this.config.stratOpts);
+          // Run strategy
+          const advice = await this.strategy.run(candleSet, this, this.config.stratOpts);
+          // Check if advice is correct (cant buy more than one order at a time)
+          const error = this.checkAdvice(advice);
+          // Process advice (if error => wait)
+          if (!error) {
+            if (advice === 'buy') {
+              await this.buy(lastCandle);
+            } else if (advice === 'sell') {
+              await this.sell(lastCandle);
+            }
+          } else {
+            // WAIT
+            logger.info(error);
+          }
+          // After strat callback
+          if (this.strategy.after) await this.strategy.after(candleSet, this, this.config.stratOpts);
         }
       }
-
-      if (this.strategy.afterAll) await this.strategy.afterAll(candleSet, this, this.config.stratOpts);
-
+      // Strat finished
+      if (this.strategy.afterAll) await this.strategy.afterAll(candleSet as CandleSet, this, this.config.stratOpts);
       // Flush buffer (write it to influx)
       await this.flushInputs(true);
       await this.portfolio.flush(true);

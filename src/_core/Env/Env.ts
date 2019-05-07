@@ -73,9 +73,11 @@ export class Env {
     try {
       if (this.conf.backtest) {
         const { start, stop } = this.conf.backtest;
+        await this.loadWarmup(start, this.conf.warmup!);
         // tslint:disable-next-line
         yield* await this.backtest(start, stop);
       } else {
+        await this.loadWarmup(moment(), this.conf.warmup!);
         // tslint:disable-next-line
         yield* await this.streaming();
       }
@@ -102,9 +104,6 @@ export class Env {
    */
   private async *streaming(refresh: number = 10) {
     try {
-      // Load Warmup
-      await this.loadWarmup(moment(), <any>this.conf.warmup);
-
       // Start streaming loop
       const batchSize = 5;
       while (!this.shouldStop) {
@@ -153,8 +152,6 @@ export class Env {
    */
   private async *backtest(start: string, stop: string) {
     try {
-      // Load Warmup
-      await this.loadWarmup(start, <any>this.conf.warmup);
       // Start backtest loop
       const current = moment(start);
       const end = moment(stop);
