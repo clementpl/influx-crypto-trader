@@ -209,7 +209,9 @@ export class Trader {
       // Strat finished
       if (this.strategy.afterAll) await this.strategy.afterAll(candleSet as CandleSet, this, this.config.stratOpts);
       // Flush buffer (write it to influx)
-      await this.stop();
+      await this.portfolio.flush(true);
+      await this.flushInputs(true);
+      await this.save();
     } catch (error) {
       await this.stop(Status.ERROR);
       throw error;
