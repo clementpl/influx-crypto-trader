@@ -1,5 +1,6 @@
 import { fork, ChildProcess } from 'child_process';
 import { TraderConfig, Trader } from './Trader';
+import { logger } from '@src/logger';
 
 /**
  * TraderWorker class help to create a trader in another process (fork) and send command to the worker using IPC
@@ -39,16 +40,17 @@ export class TraderWorker {
     });
     // Dispatch response command
     this.traderProcess.on('message', msg => {
+      // Get response
       const { command, code, args } = JSON.parse(msg);
+      // Find promise to resolve
       const resolver = this.resolver[command];
-      // Resolve promise for command response
       // UPDATE trader ref (for properties, stat...) if args is trader
       this.trader = args.config && args.config.name && args.config.exchange ? args : this.trader;
       // STOP special behavior
       if (command === 'STOP' || command === 'DELETE') {
         this.traderProcess.kill();
       }
-      // Default behavior
+      // Default behavior (resolve promise)
       if (code === -1) {
         resolver.reject(JSON.parse(args));
       } else resolver.resolve(args);
@@ -132,7 +134,7 @@ export class TraderWorker {
   }
 
   /**
-   * Add a command resolver (when child process respond the promise will resolve)
+   * Add a command resolver (when child process respond, the promise will resolve)
    *
    * @private
    * @param {string} command command name to resolve

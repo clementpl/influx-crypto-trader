@@ -67,6 +67,49 @@ export class Traders {
     }
   }
 
+  public static async startTrader(request: Request): Promise<any> {
+    try {
+      const { name } = request.params;
+      const traderMongo = await TraderModel.findOne({ name });
+      if (!traderMongo) {
+        return Boom.notFound(`Trader ${name} not found`);
+      }
+      (<any>traderMongo)._doc.env.backtest = (<any>traderMongo)._doc.env.backtest.start
+        ? (<any>traderMongo)._doc.env.backtest
+        : undefined;
+      // Modify config for restarting
+      const traderConfig: any = {
+        ...(<any>traderMongo)._doc,
+        flush: false,
+        restart: true,
+      };
+
+      // Create trader worker
+      const trader = new TraderWorker(traderConfig);
+      // Start thread and init trader (env/portfolio/...)
+      await trader.init();
+      // Start trader (stop and delete it when finish running (backtest mode))
+      trader
+        .start()
+        .then(async () => {
+          if ((await trader.getStatus()) !== Status.STOP) await trader.stop();
+          Traders.removeRunnningTrader(trader);
+          logger.info(`[API] trader ${traderConfig.name} finish running`);
+        })
+        .catch(async (error: Error) => {
+          logger.error(error);
+          await trader.stop();
+          Traders.removeRunnningTrader(trader);
+        });
+      // Push it to array of running traders
+      Traders.runningTraders.push(trader);
+      return success(trader.trader.config.name);
+    } catch (error) {
+      logger.error(error);
+      throw Boom.internal(error);
+    }
+  }
+
   public static async optimizeTrader(request: Request): Promise<any> {
     try {
       const { trader, opts } = <any>request.payload;

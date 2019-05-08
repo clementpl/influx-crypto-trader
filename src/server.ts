@@ -25,6 +25,6 @@ export async function startServer(): Promise<Server> {
 
 export async function stopServer(): Promise<void> {
   logger.info('Shutting down server...');
-  await Mongo.close();
   await API.stop();
+  await Mongo.close();
 }

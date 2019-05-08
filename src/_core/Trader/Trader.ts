@@ -13,6 +13,7 @@ import { flatten, requireUncached } from '../helpers';
 
 export interface TraderConfig {
   name: string;
+  restart?: boolean;
   silent?: boolean;
   flush?: boolean;
   env: EnvConfig;
@@ -60,7 +61,6 @@ export class Trader {
   private symbol: string;
   private exchange: Exchange;
   private isBacktesting: boolean;
-  private currentOrder: Order | undefined;
   private shouldStop: boolean = false;
   // Buffer for writing candles data (with indicators) to influxDB
   private bufferInputs: any[] = [];
@@ -118,7 +118,8 @@ export class Trader {
         exchange: this.config.exchange.name,
         backtest: this.config.env.backtest ? true : false,
       });
-      await this.portfolio.init(this.influx, this.config.flush);
+      if (this.config.restart) await this.portfolio.reload(this.influx, this.config.flush);
+      else await this.portfolio.init(this.influx, this.config.flush);
     } catch (error) {
       logger.error(error);
       throw new Error(`[${this.config.name}] Problem during trader initialization`);
@@ -131,11 +132,12 @@ export class Trader {
    * @returns {Promise<void>}
    * @memberof Trader
    */
-  public async stop(): Promise<void> {
-    this.status = Status.STOP;
+  public async stop(status?: Status): Promise<void> {
+    this.status = status || Status.STOP;
     this.shouldStop = true;
     this.env.stop();
     await this.portfolio.flush(true);
+    await this.flushInputs(true);
     await this.save();
     logger.info(`[${this.config.name}] Trader ${this.config.name} stopped`);
   }
@@ -177,9 +179,7 @@ export class Trader {
             });
           }
           // Update portfolio with new candle
-          await this.portfolio.save(lastCandle);
-          // Persist inputs to influx
-          await this.flushInputs();
+          await this.portfolio.update(lastCandle);
 
           // Before strat callback
           if (this.strategy.before) await this.strategy.before(candleSet, this, this.config.stratOpts);
@@ -200,18 +200,18 @@ export class Trader {
           }
           // After strat callback
           if (this.strategy.after) await this.strategy.after(candleSet, this, this.config.stratOpts);
+
+          // Persist inputs/portfolio to influx
+          await this.flushInputs();
+          await this.portfolio.save();
         }
       }
       // Strat finished
       if (this.strategy.afterAll) await this.strategy.afterAll(candleSet as CandleSet, this, this.config.stratOpts);
       // Flush buffer (write it to influx)
-      await this.flushInputs(true);
-      await this.portfolio.flush(true);
+      await this.stop();
     } catch (error) {
-      await this.flushInputs(true);
-      await this.portfolio.flush(true);
-      this.status = Status.ERROR;
-      await this.save();
+      await this.stop(Status.ERROR);
       throw error;
     }
   }
@@ -256,10 +256,10 @@ export class Trader {
    */
   private checkAdvice(advice: string): string | undefined {
     let error;
-    if (advice === 'buy' && this.currentOrder) {
+    if (advice === 'buy' && this.portfolio.trade) {
       error = `[${this.config.name}] Trying to buy but there is already one order bought`;
     }
-    if (advice === 'sell' && !this.currentOrder) {
+    if (advice === 'sell' && !this.portfolio.trade) {
       error = `[${this.config.name}] Trying to sell but there is no order to sell`;
     }
     return error;
@@ -289,8 +289,7 @@ export class Trader {
       const invest = investExpected < minCost ? minCost : investExpected;
       const amount: number = +(invest / lastCandle.close).toFixed(8);
       const order: Order = await this.exchange.buyMarket(this.config.base, this.config.quote, amount, lastCandle);
-      this.portfolio.notifyBuy(order);
-      this.currentOrder = order;
+      await this.portfolio.notifyBuy(order);
     } catch (error) {
       logger.error(error);
       throw new Error(`[${this.config.name}] Problem while buying`);
@@ -306,16 +305,15 @@ export class Trader {
    * @memberof Trader
    */
   private async sell(lastCandle: Candle): Promise<void> {
-    if (this.currentOrder) {
+    if (this.portfolio.trade) {
       try {
         const order: Order = await this.exchange.sellMarket(
           this.config.base,
           this.config.quote,
-          this.currentOrder.amount,
+          this.portfolio.trade.orderBuy.amount,
           lastCandle
         );
-        this.portfolio.notifySell(order);
-        this.currentOrder = undefined;
+        await this.portfolio.notifySell(order);
       } catch (error) {
         logger.error(error);
         throw new Error(`[${this.config.name}] Problem while selling`);
@@ -333,6 +331,7 @@ export class Trader {
       if (!this.isBacktesting) {
         const trader = { ...this.config, status: this.status };
         await TraderModel.findOneAndUpdate({ name: this.config.name }, trader, { upsert: true });
+        await this.portfolio.persistMongo();
       }
     } catch (error) {
       logger.error(error);
