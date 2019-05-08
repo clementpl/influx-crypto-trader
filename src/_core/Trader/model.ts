@@ -1,4 +1,6 @@
 import { Schema, model, Document } from 'mongoose';
+import { EnvConfig } from '@src/_core/Env/Env';
+import { TraderConfig } from '@src/_core/Trader/Trader';
 
 // Create trader schema
 const TraderSchema = new Schema(
@@ -10,6 +12,7 @@ const TraderSchema = new Schema(
     capital: Number,
     percentInvest: Number,
     test: Boolean,
+    flush: Boolean,
     base: String,
     quote: String,
     exchange: {
@@ -27,6 +30,7 @@ const TraderSchema = new Schema(
         stop: String,
       },
     },
+    stratOpts: Schema.Types.Mixed,
     // ...any
     // Strict:false => enable storing any other props
   },
@@ -37,6 +41,23 @@ export interface TraderModel extends Document {
   id?: string;
   type: string;
   status: string;
+
+  name: string;
+  silent: boolean;
+  strategie: string;
+  capital: number;
+  percentInvest: number;
+  test: boolean;
+  flush: boolean;
+  restart: boolean;
+  quote: string;
+  exchange: {
+    name: string;
+    apiKey: string;
+    apiSecret: string;
+  };
+  env: EnvConfig;
+  stratOpts: any;
 }
 
 // Export Trader model

@@ -40,6 +40,7 @@ export class Portfolio {
   public trade: PortfolioTrade | undefined;
   public indicatorHistory: PortfolioIndicators[] = [];
   public tradeHistory: PortfolioTrade[] = [];
+  private lastCandle: Candle;
   // Buffer size of history (indicator/trades)
   private bufferSize: number = 2000;
   // InfluxDb client
@@ -70,6 +71,26 @@ export class Portfolio {
     if (flush) await this.cleanInflux();
     this.hasInitSeries = false;
     this.reset();
+  }
+
+  /**
+   * Reload portfolio state from MongoDB
+   *
+   * @param {Influx} influx
+   * @param {boolean} [flush=true]
+   * @returns {Promise<void>}
+   * @memberof Portfolio
+   */
+  public async reload(influx: Influx, flush: boolean = false): Promise<void> {
+    this.influx = influx;
+    if (flush) await this.cleanInflux();
+    this.hasInitSeries = false;
+    const portfolio = await PortfolioModel.findOne({ name: this.conf.name });
+    if (!portfolio) throw Error(`Cannot find portoflio ${this.conf.name}`);
+    this.indicators = portfolio.indicators;
+    this.trade = portfolio.trade;
+    this.tradeHistory = portfolio.tradeHistory;
+    this.indicatorHistory = portfolio.indicatorHistory;
   }
 
   /**
@@ -108,7 +129,7 @@ export class Portfolio {
    * @param {Order} order
    * @memberof Portfolio
    */
-  public notifyBuy(order: Order): void {
+  public async notifyBuy(order: Order): Promise<void> {
     // on Buy currentCapital decrease by the cost (fees cost is include in it so no need to add it again)
     this.indicators.currentCapital -= order.cost /* + order.fee.cost*/;
     this.indicators.assetCapital += order.filled;
@@ -128,6 +149,8 @@ export class Portfolio {
       orderProfit: 0,
     };
     this.pushTrade();
+    await this.flush();
+    await this.persistMongo();
   }
 
   /**
@@ -136,7 +159,7 @@ export class Portfolio {
    * @param {Order} order
    * @memberof Portfolio
    */
-  public notifySell(order: Order): void {
+  public async notifySell(order: Order): Promise<void> {
     this.indicators.currentCapital += order.cost - order.fee.cost;
     this.indicators.assetCapital -= order.filled;
     this.indicators.fees += order.fee.cost;
@@ -158,6 +181,8 @@ export class Portfolio {
     this.tradeHistory.pop();
     this.pushTrade();
     this.trade = undefined;
+    await this.flush();
+    await this.persistMongo();
   }
 
   /**
@@ -167,6 +192,7 @@ export class Portfolio {
    * @memberof Portfolio
    */
   public update(lastCandle: Candle): void {
+    this.lastCandle = lastCandle;
     this.indicators.totalValue = this.indicators.currentCapital + this.indicators.assetCapital * lastCandle.close;
     this.indicators.currentProfit = (this.indicators.totalValue - this.conf.capital) / this.conf.capital;
     if (this.trade) {
@@ -192,12 +218,12 @@ export class Portfolio {
    * @returns {Promise<void>}
    * @memberof Portfolio
    */
-  public async save(lastCandle: Candle): Promise<void> {
-    this.update(lastCandle);
+  public async save(): Promise<void> {
+    // this.update(lastCandle);
     // Copy indicator
     const indicator: PortfolioIndicators = JSON.parse(JSON.stringify(this.indicators));
     this.pushIndicator(indicator);
-    this.updateBuffer.push({ values: indicator, time: lastCandle.time });
+    this.updateBuffer.push({ values: indicator, time: this.lastCandle.time });
     await this.flush();
     await this.persistMongo();
   }
@@ -210,6 +236,8 @@ export class Portfolio {
   public async persistMongo() {
     try {
       if (!this.conf.backtest) {
+        /* console.log('PERSIST MONGO');
+        console.trace(); */
         const portfolio = {
           ...this.conf,
           indicators: this.indicators,
@@ -236,7 +264,7 @@ export class Portfolio {
     // If lastFlushTime > flushTimeout flush buffer
     // - Backtest every 5 second
     // - Streaming every minutes "normal behavior"
-    if (force || moment().diff(moment(this.lastFlushTime), 's') >= this.flushTimeout) {
+    if (!this.conf.backtest || force || moment().diff(moment(this.lastFlushTime), 's') >= this.flushTimeout) {
       // Write async (update/buy/sell)
       const tags = { name: this.conf.name };
       try {

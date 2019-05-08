@@ -75,5 +75,7 @@ export class API {
     }
     // Stop running traders
     Traders.runningTraders.forEach(trader => trader.stop());
+    // TODO find why trader.stop() is not working
+    // await Promise.all(Traders.runningTraders.map(trader => trader.stop()));
   }
 }

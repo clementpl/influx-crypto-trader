@@ -60,6 +60,15 @@ export const routes: any[] = [
   },
   {
     method: 'GET',
+    path: '/traders/{name}/start',
+    handler: Traders.startTrader,
+    options: {
+      tags: ['Traders', 'API'],
+      description: 'GET start a specific trader (reload from mongodb)',
+    },
+  },
+  {
+    method: 'GET',
     path: '/traders',
     handler: Traders.getTraders,
     options: {
