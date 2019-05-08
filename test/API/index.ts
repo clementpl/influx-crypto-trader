@@ -96,6 +96,7 @@ describe('CRUD Traders', () => {
         done();
       });
   });
+
   after(async () => {
     await stopServer();
     logger.silent = false;

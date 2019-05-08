@@ -1,5 +1,5 @@
 import { TraderConfig, Trader } from './Trader';
-import { deepFind } from '../helpers';
+import { deepFind, sleep } from '../helpers';
 import { Mongo } from '@src/_core/Mongo/Mongo';
 import { config as projectConfig } from '@config/config';
 
@@ -109,7 +109,9 @@ async function main() {
   async function start() {
     const command = 'START';
     try {
+      // await Mongo.connect(projectConfig.mongo);
       await trader.start();
+      await Mongo.close();
       send(command, 1, trader);
     } catch (error) {
       throw error;
@@ -147,3 +149,7 @@ async function main() {
 }
 
 main().catch(errorHandler('main'));
+
+/* tslint:disable */
+// This worker will be killed by parent process properly
+process.on('SIGINT', () => {});

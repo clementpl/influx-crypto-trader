@@ -27,6 +27,7 @@ export interface PortfolioTrade {
   orderBuy: Order;
   orderSell: Order | undefined;
   orderProfit: number;
+  maxProfit: number;
 }
 
 /**
@@ -147,6 +148,7 @@ export class Portfolio {
       orderBuy: order,
       orderSell: undefined,
       orderProfit: 0,
+      maxProfit: 0,
     };
     this.pushTrade();
     await this.flush();
@@ -196,10 +198,12 @@ export class Portfolio {
     this.indicators.totalValue = this.indicators.currentCapital + this.indicators.assetCapital * lastCandle.close;
     this.indicators.currentProfit = (this.indicators.totalValue - this.conf.capital) / this.conf.capital;
     if (this.trade) {
-      // this.trade.orderProfit = (lastCandle.close - this.trade.orderBuy.price) / this.trade.orderBuy.price;
       this.trade.orderProfit =
         (lastCandle.close * this.trade.orderBuy.filled - this.trade.orderBuy.cost - this.trade.orderBuy.fee.cost) /
         this.trade.orderBuy.cost;
+      if (this.trade.orderProfit > this.trade.maxProfit) {
+        this.trade.maxProfit = this.trade.orderProfit;
+      }
     }
     // If first call to Update (init buffer serie)
     if (!this.hasInitSeries) {
@@ -219,7 +223,6 @@ export class Portfolio {
    * @memberof Portfolio
    */
   public async save(): Promise<void> {
-    // this.update(lastCandle);
     // Copy indicator
     const indicator: PortfolioIndicators = JSON.parse(JSON.stringify(this.indicators));
     this.pushIndicator(indicator);
@@ -236,8 +239,6 @@ export class Portfolio {
   public async persistMongo() {
     try {
       if (!this.conf.backtest) {
-        /* console.log('PERSIST MONGO');
-        console.trace(); */
         const portfolio = {
           ...this.conf,
           indicators: this.indicators,
