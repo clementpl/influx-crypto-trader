@@ -46,9 +46,6 @@ export class TraderWorker {
       const resolver = this.resolver[command];
       // UPDATE trader ref (for properties, stat...) if args is trader
       this.trader = args.config && args.config.name && args.config.exchange ? args : this.trader;
-      if (command === 'START' && this.config.env.backtest) {
-        this.stop().catch(error => logger.error(error));
-      }
       // STOP special behavior
       if (command === 'STOP' || command === 'DELETE') {
         this.traderProcess.kill();
