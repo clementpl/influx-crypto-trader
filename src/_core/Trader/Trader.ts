@@ -211,6 +211,7 @@ export class Trader {
       await this.flushInputs(true);
       await this.portfolio.flush(true);
       this.status = Status.ERROR;
+      await this.save();
       throw error;
     }
   }
@@ -257,11 +258,9 @@ export class Trader {
     let error;
     if (advice === 'buy' && this.currentOrder) {
       error = `[${this.config.name}] Trying to buy but there is already one order bought`;
-      // throw new Error('[Trader] Trying to buy but there is already one order bought');
     }
     if (advice === 'sell' && !this.currentOrder) {
       error = `[${this.config.name}] Trying to sell but there is no order to sell`;
-      // throw new Error('[Trader] Trying to sell but there is no order to sell');
     }
     return error;
   }

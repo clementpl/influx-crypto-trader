@@ -1,6 +1,6 @@
 import { Schema, model, Document } from 'mongoose';
 
-// Create watcher schema
+// Create trader schema
 const TraderSchema = new Schema(
   {
     name: String,
@@ -39,5 +39,5 @@ export interface TraderModel extends Document {
   status: string;
 }
 
-// Export model
+// Export Trader model
 export const TraderModel = model<TraderModel>('Trader', TraderSchema);

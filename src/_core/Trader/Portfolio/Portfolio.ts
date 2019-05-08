@@ -4,6 +4,7 @@ import { Influx } from '../../Influx/Influx';
 import { Candle } from '../../Env/Candle';
 import { logger } from '../../../logger';
 import { MEASUREMENT_PORTFOLIO, MEASUREMENT_TRADES } from '../../Influx/constants';
+import { PortfolioModel } from './model';
 
 export interface PortfolioConfig {
   name: string;
@@ -198,6 +199,30 @@ export class Portfolio {
     this.pushIndicator(indicator);
     this.updateBuffer.push({ values: indicator, time: lastCandle.time });
     await this.flush();
+    await this.persistMongo();
+  }
+
+  /**
+   * Persist portfolio data to MongoDB
+   *
+   * @memberof Portfolio
+   */
+  public async persistMongo() {
+    try {
+      if (!this.conf.backtest) {
+        const portfolio = {
+          ...this.conf,
+          indicators: this.indicators,
+          trade: this.trade,
+          indicatorHistory: this.indicatorHistory,
+          tradeHistory: this.tradeHistory,
+        };
+        await PortfolioModel.findOneAndUpdate({ name: this.conf.name }, portfolio, { upsert: true });
+      }
+    } catch (error) {
+      logger.error(error);
+      logger.error(new Error(`[${this.conf.name}] Error while saving portfolio ${this.conf.name}`));
+    }
   }
 
   /**
@@ -221,7 +246,7 @@ export class Portfolio {
         this.updateBuffer = [];
         this.buyBuffer = [];
         this.sellBuffer = [];
-      } catch(error) {
+      } catch (error) {
         logger.error(error);
         logger.error(new Error(`[${this.conf.name}] Problem while saving portfolio state to influx`));
         // throw new Error('Problem while saving portfolio state to influx');
