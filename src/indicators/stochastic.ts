@@ -15,21 +15,15 @@ const stochastic: CandleIndicator = (label: string, opts: RSIConfig) => {
 
   // Process function (called with each new candle)
   return async (candles: Candle[], newCandle: Candle) => {
+    candles = candles.slice(-opts.period - 1);
+    candles.push(newCandle);
+
     const values: StochasticOutput[] = stochasticTI({
       period: opts.period,
       signalPeriod: opts.signalPeriod,
-      high: candles
-        .slice(-opts.period - 1)
-        .concat(newCandle)
-        .map(c => c.high),
-      low: candles
-        .slice(-opts.period - 1)
-        .concat(newCandle)
-        .map(c => c.low),
-      close: candles
-        .slice(-opts.period - 1)
-        .concat(newCandle)
-        .map(c => c.close),
+      high: candles.map(c => c.high),
+      low: candles.map(c => c.low),
+      close: candles.map(c => c.close),
     });
     return mergeLabel(values[values.length - 1], label);
   };

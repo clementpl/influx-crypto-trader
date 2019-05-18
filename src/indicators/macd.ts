@@ -35,16 +35,15 @@ const macd: CandleIndicator = (label: string, opts: MACDConfig) => {
   return async (candles: Candle[], newCandle: Candle) => {
     if (candles.length < conf.slowPeriod + conf.signalPeriod) return {};
     // Calc MACD
+    candles = candles.slice(-conf.slowPeriod - conf.signalPeriod);
+    candles.push(newCandle);
     const values: MACDOutput[] = macdTI({
       ...conf,
-      values: candles
-        .slice(-conf.slowPeriod - conf.signalPeriod)
-        .concat(newCandle)
-        .map(c => c[key]),
+      values: candles.map(c => c[key]),
     });
 
     // Get MACD Output to return
-    // create an object like { label-MACD: 10..., label-signal: 8..., label-histogram: ...}
+    // create an object like { ${label}-MACD: 10..., ${label}-signal: 8..., ${label}-histogram: ...}
     return mergeLabel(values[values.length - 1], label);
   };
 };

@@ -12,7 +12,8 @@ const vwap: CandleIndicator = (label: string, opts: VWAPConfig) => {
 
   // Process function (called with each new candle)
   return async (candles: Candle[], newCandle: Candle) => {
-    const data = candles.slice(-1).concat(newCandle);
+    const data = candles.slice(-1);
+    data.push(newCandle);
 
     const values: number[] = vwapTI({
       close: data.map(c => c.close),
