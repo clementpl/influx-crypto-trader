@@ -107,7 +107,9 @@ export class Trader {
       // Init exchange
       this.exchange = new Exchange({
         name: this.config.exchange.name,
-        test: true, // TODO Change test here
+        test: this.config.test === true ? true : false,
+        apiKey: this.config.exchange.apiKey,
+        apiSecret: this.config.exchange.apiSecret,
       });
       // Init portfolio
       this.portfolio = new Portfolio({
