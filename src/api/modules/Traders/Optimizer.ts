@@ -4,6 +4,7 @@ import PQueue from 'p-queue';
 
 import { logger, TraderWorker as TraderWorkerBase, TraderConfig } from '../../../../src/exports';
 import { deepFind } from '../../../_core/helpers';
+import { Status } from '@src/_core/exports';
 
 class TraderWorker extends TraderWorkerBase {
   public fitnesses: Array<{
@@ -288,7 +289,7 @@ export class Optimizer {
                     // set fitness to -1 on error
                     if (!t.fitnesses) t.fitnesses = [];
                     t.fitnesses.push({ currentProfit: -1, percentTradeWin: -1, tradeFreqency: -1, total: -1 });
-                    await t.stop().catch(error => logger.error(error));
+                    if (t.trader.status !== Status.STOP) await t.stop().catch(error => logger.error(error));
                     reject(error);
                   }
                 })
