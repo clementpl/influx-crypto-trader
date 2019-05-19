@@ -73,7 +73,14 @@ function getFitness(trader: TraderWorker, key: string = 'total'): number {
   for (const fitness of trader.fitnesses) {
     sum += fitness[key];
   }
-  return sum / trader.fitnesses.length;
+  const score = sum / trader.fitnesses.length;
+  // Add 0.5 bonus points to total
+  let bonus = 0;
+  if (key === 'total') {
+    if (trader.fitnesses.filter(f => f.currentProfit > 0.01).length === trader.fitnesses.length) bonus += 0.25;
+    if (trader.fitnesses.filter(f => f.percentTradeWin > 0.55).length === trader.fitnesses.length) bonus += 0.25;
+  }
+  return score + bonus;
 }
 
 function calcFitness(
@@ -115,11 +122,11 @@ function mutate(
         newOpts[g.key] = g.list[randomBetween(0, g.list.length - 1, true)];
       }
       // Mutate numeric value
-      // Mutation move value between 0.5% to 20%
+      // Mutation move value between 0.5% to 50%
       else {
         const direction = randomBetween(0, 1, true) === 0 ? -1 : 1;
         const range = g.max - g.min;
-        const diff = range * randomBetween(0.005, 0.2) * direction;
+        const diff = range * randomBetween(0.005, 0.5) * direction;
         const newVal = oldOpts[g.key] + diff;
         newOpts[g.key] = g.integer ? Math.floor(newVal) : newVal;
       }
@@ -161,6 +168,7 @@ function breedNewGeneration(
   generation = generation.sort((a: any, b: any) => getFitness(b) - getFitness(a));
   const generationResort: TraderWorker[] = [];
   let currentIdx = 1;
+  // Sort indiv by fitness (take care of keeping only one version of each individu)
   generation.forEach((indiv, idx) => {
     // keep best indiv (first one)
     if (idx === 0) generationResort.push(indiv);
@@ -189,8 +197,8 @@ function breedNewGeneration(
   }
   // Mutate or breed new indiv
   while (newGeneration.length < opts.popSize) {
-    // crossover 75% chance
-    if (randomBetween(0, 1) >= 0.25) {
+    // Breed indiv using crossover (66%)
+    if (randomBetween(0, 1) > 0.33) {
       // Get parent1 and 2 randomly (Make sure parent1 and 2 are different)
       /*const t1 = generation[randomBetween(0, Math.floor(generation.length / 2), true)];
       let t2 =
@@ -201,7 +209,7 @@ function breedNewGeneration(
       // create children
       newGeneration.push(crossover(`${traderConfig.name}-gen${gen}-ind${newGeneration.length}`, t1, t2, opts));
     }
-    // mutation
+    // Breed indiv using mutation (33%)
     else {
       const t = generation[randomBetween(0, generation.length - 1, true)];
       newGeneration.push(mutate(traderConfig, t, opts, gen, newGeneration.length));
@@ -277,6 +285,9 @@ export class Optimizer {
                     t.hasRunned = true;
                     resolve();
                   } catch (error) {
+                    // set fitness to -1 on error
+                    if (!t.fitnesses) t.fitnesses = [];
+                    t.fitnesses.push({ currentProfit: -1, percentTradeWin: -1, tradeFreqency: -1, total: -1 });
                     await t.stop().catch(error => logger.error(error));
                     reject(error);
                   }
