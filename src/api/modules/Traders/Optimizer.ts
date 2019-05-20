@@ -78,8 +78,8 @@ function getFitness(trader: TraderWorker, key: string = 'total'): number {
   // Add 0.5 bonus points to total
   let bonus = 0;
   if (key === 'total') {
-    if (trader.fitnesses.filter(f => f.currentProfit > 0.01).length === trader.fitnesses.length) bonus += 0.25;
-    if (trader.fitnesses.filter(f => f.percentTradeWin > 0.55).length === trader.fitnesses.length) bonus += 0.25;
+    if (trader.fitnesses.filter(f => f.currentProfit > 0.05).length === trader.fitnesses.length) bonus += 0.25;
+    if (trader.fitnesses.filter(f => f.percentTradeWin > 0.6).length === trader.fitnesses.length) bonus += 0.25;
   }
   return score + bonus;
 }
