@@ -69,6 +69,27 @@ function randomIndiv(traderConfig: TraderConfig, opts: GeneticOpts, gen: number,
   return createTraderWorker(traderConfig, `${traderConfig.name}-gen${gen}-ind${ind}`, newOpts, opts.silent);
 }
 
+function tournamentSelection(generation: TraderWorker[], participant: number = 4): TraderWorker[] {
+  const checkSameFitness = (indivs: TraderWorker[], fitness: number) => {
+    for (const trader of indivs) {
+      if (getFitness(trader) === fitness) return true;
+    }
+    return false;
+  };
+  const traders: TraderWorker[] = [];
+  // Select X random participant
+  for (let i = 0; i < participant; i++) {
+    let trader = generation[randomBetween(0, generation.length - 1, true)];
+    let j = 0;
+    while (j++ < generation.length && checkSameFitness(traders, getFitness(trader))) {
+      trader = generation[randomBetween(0, generation.length - 1, true)];
+    }
+    traders.push(trader);
+  }
+  // return 2 best traders from tournament
+  return traders.sort((a: any, b: any) => getFitness(b) - getFitness(a)).slice(0, 2);
+}
+
 function getFitness(trader: TraderWorker, key: string = 'total'): number {
   let sum = 0;
   for (const fitness of trader.fitnesses) {
@@ -164,7 +185,6 @@ function breedNewGeneration(
   opts: GeneticOpts,
   gen: number
 ): TraderWorker[] {
-  const newGeneration: TraderWorker[] = [];
   // sort by fitness (but keep only different fitness at the top => try to avoid same indiv convergence)
   generation = generation.sort((a: any, b: any) => getFitness(b) - getFitness(a));
   const generationResort: TraderWorker[] = [];
@@ -181,18 +201,21 @@ function breedNewGeneration(
     }
   });
   generation = generationResort;
+
+  /* CREATE NEW GENERATION */
+  const newGeneration: TraderWorker[] = [];
   // keep best indiv
   const bestIndivs = generation.slice(0, opts.elitism);
   for (const bestIndiv of bestIndivs) {
     // just rename best indiv with new name (will not rerun)
     bestIndiv.config.name = `${traderConfig.name}-gen${gen}-ind${newGeneration.length}`;
     // keep best unchanged
-    if (newGeneration.length < 1) {
+    if (newGeneration.length < Math.floor(opts.elitism / 2) + 1) {
       newGeneration.push(bestIndiv);
     } else {
       // Mutate indiv or keep it unmutate
       const indiv =
-        randomBetween(0, 1) < 0.33 ? mutate(traderConfig, bestIndiv, opts, gen, newGeneration.length) : bestIndiv;
+        randomBetween(0, 1) < 0.5 ? mutate(traderConfig, bestIndiv, opts, gen, newGeneration.length) : bestIndiv;
       newGeneration.push(indiv);
     }
   }
@@ -200,13 +223,14 @@ function breedNewGeneration(
   while (newGeneration.length < opts.popSize) {
     // Breed indiv using crossover (66%)
     if (randomBetween(0, 1) > 0.33) {
+      // other impl:
+      // let t2 = generation[randomBetween(0, generation.length - 1, true)];
+      /*const t1 =
+        generation[randomBetween(0, Math.floor(gen >= 10 ? generation.length - 1 : generation.length / 2), true)];
+      let t2 = generation[randomBetween(0, Math.floor(generation.length / 2), true)];
+      while (getFitness(t2) === getFitness(t1)) t2 = generation[randomBetween(0, generation.length - 1, true)];*/
       // Get parent1 and 2 randomly (Make sure parent1 and 2 are different)
-      /*const t1 = generation[randomBetween(0, Math.floor(generation.length / 2), true)];
-      let t2 =
-        generation[randomBetween(0, Math.floor(gen >= 10 ? generation.length - 1 : generation.length / 2), true)];*/
-      const t1 = generation[randomBetween(0, generation.length - 1, true)];
-      let t2 = generation[randomBetween(0, generation.length - 1, true)];
-      while (getFitness(t2) === getFitness(t1)) t2 = generation[randomBetween(0, generation.length - 1, true)];
+      const [t1, t2] = tournamentSelection(generation, 4);
       // create children
       newGeneration.push(crossover(`${traderConfig.name}-gen${gen}-ind${newGeneration.length}`, t1, t2, opts));
     }
