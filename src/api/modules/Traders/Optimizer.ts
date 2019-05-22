@@ -149,7 +149,8 @@ function mutate(
         const direction = randomBetween(0, 1, true) === 0 ? -1 : 1;
         const range = g.max - g.min;
         const diff = range * randomBetween(0.005, 0.5) * direction;
-        const newVal = oldOpts[g.key] + diff;
+        let newVal = oldOpts[g.key] + diff;
+        newVal = newVal < g.min ? g.min : newVal > g.max ? g.max : newVal;
         newOpts[g.key] = g.integer ? Math.floor(newVal) : newVal;
       }
     }
