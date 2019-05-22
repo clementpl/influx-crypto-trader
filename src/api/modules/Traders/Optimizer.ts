@@ -211,7 +211,7 @@ function breedNewGeneration(
     // just rename best indiv with new name (will not rerun)
     bestIndiv.config.name = `${traderConfig.name}-gen${gen}-ind${newGeneration.length}`;
     // keep best unchanged
-    if (newGeneration.length < Math.floor(opts.elitism / 2) + 1) {
+    if (newGeneration.length < opts.elitism) {// Math.floor(opts.elitism / 2) + 1) {
       newGeneration.push(bestIndiv);
     } else {
       // Mutate indiv or keep it unmutate
