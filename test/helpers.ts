@@ -23,7 +23,7 @@ export const getTraderConfig = (strat: string): TraderConfig => ({
       },
     ],
     aggTimes: ['5m', '15m', '1h'],
-    warmup: 5000,
+    warmup: 2000,
     batchSize: 1000,
     bufferSize: 5000,
     backtest: {

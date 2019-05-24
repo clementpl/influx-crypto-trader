@@ -174,19 +174,22 @@ export class CandleSet {
 
     // Execute plugins
     for (const { opts, compute } of this.plugins) {
+      // Aggregated timeframe
       if (opts.aggTime) {
         const candles = this.getMarketCandles(`${symbol}:${opts.aggTime}`) as Candle[];
-        // Does need to concat new candle for one 1m market candles (candles not updated)
-        newCandle.indicators = {
-          ...newCandle.indicators,
-          ...(await compute(candles.concat(newCandle), newCandle)),
-        };
-      } else {
-        const candles = opts.aggTime ? (this.getMarketCandles(`${symbol}:${opts.aggTime}`) as Candle[]) : candlesSymbol;
-        // Doesn't need to concat new candle for other timeframe (candles already updated, cf: push method)
         newCandle.indicators = {
           ...newCandle.indicators,
           ...(await compute(candles, candles[candles.length - 1])),
+        };
+      }
+      // 1m timeframe
+      else {
+        const candles = candlesSymbol.slice();
+        candles.push(newCandle);
+        newCandle.indicators = {
+          ...newCandle.indicators,
+          ...(await compute(candles, candles[candles.length - 1])),
+          // ...(await compute(candles.concat(newCandle), newCandle)),
         };
       }
     }

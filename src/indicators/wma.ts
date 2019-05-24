@@ -13,12 +13,9 @@ const wma: CandleIndicator = (label: string, opts: WMAConfig) => {
 
   // Process function (called with each new candle)
   return async (candles: Candle[], newCandle: Candle) => {
-    candles = candles.slice(-opts.period - 1);
-    candles.push(newCandle);
-
     const values: number[] = wmaTI({
       period: opts.period,
-      values: candles.map(c => c[opts.key]),
+      values: candles.slice(-opts.period - 1).map(c => c[opts.key]),
     });
 
     return { [label]: values[values.length - 1] };
