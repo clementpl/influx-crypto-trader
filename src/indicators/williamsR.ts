@@ -25,7 +25,6 @@ const williamsR: CandleIndicator = (label: string, opts: WilliamsRConfig) => {
     if (candles.length < conf.period) return {};
     // Calc MACD
     const candlesPeriod = candles.slice(-conf.period);
-    candlesPeriod.push(newCandle);
     const values: number[] = williamsr({
       ...conf,
       high: candlesPeriod.map(c => c.high),
