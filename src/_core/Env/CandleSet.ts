@@ -189,8 +189,7 @@ export class CandleSet {
         candles.push(newCandle);
         newCandle.indicators = {
           ...newCandle.indicators,
-          ...(await compute(candles, candles[candles.length - 1])),
-          // ...(await compute(candles.concat(newCandle), newCandle)),
+          ...(await compute(candles, newCandle)),
         };
       }
     }
