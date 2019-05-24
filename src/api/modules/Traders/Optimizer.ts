@@ -4,6 +4,7 @@ import PQueue from 'p-queue';
 
 import { logger, TraderWorker as TraderWorkerBase, TraderConfig } from '../../../../src/exports';
 import { deepFind } from '../../../_core/helpers';
+import { Status } from '@src/_core/exports';
 
 class TraderWorker extends TraderWorkerBase {
   public fitnesses: Array<{
@@ -68,12 +69,40 @@ function randomIndiv(traderConfig: TraderConfig, opts: GeneticOpts, gen: number,
   return createTraderWorker(traderConfig, `${traderConfig.name}-gen${gen}-ind${ind}`, newOpts, opts.silent);
 }
 
+function tournamentSelection(generation: TraderWorker[], participant: number = 4): TraderWorker[] {
+  const checkSameFitness = (indivs: TraderWorker[], fitness: number) => {
+    for (const trader of indivs) {
+      if (getFitness(trader) === fitness) return true;
+    }
+    return false;
+  };
+  const traders: TraderWorker[] = [];
+  // Select X random participant
+  for (let i = 0; i < participant; i++) {
+    let trader = generation[randomBetween(0, generation.length - 1, true)];
+    let j = 0;
+    while (j++ < generation.length && checkSameFitness(traders, getFitness(trader))) {
+      trader = generation[randomBetween(0, generation.length - 1, true)];
+    }
+    traders.push(trader);
+  }
+  // return 2 best traders from tournament
+  return traders.sort((a: any, b: any) => getFitness(b) - getFitness(a)).slice(0, 2);
+}
+
 function getFitness(trader: TraderWorker, key: string = 'total'): number {
   let sum = 0;
   for (const fitness of trader.fitnesses) {
     sum += fitness[key];
   }
-  return sum / trader.fitnesses.length;
+  const score = sum / trader.fitnesses.length;
+  // Add 0.5 bonus points to total
+  let bonus = 0;
+  if (key === 'total') {
+    if (trader.fitnesses.filter(f => f.currentProfit > 0.05).length === trader.fitnesses.length) bonus += 0.25;
+    if (trader.fitnesses.filter(f => f.percentTradeWin > 0.6).length === trader.fitnesses.length) bonus += 0.25;
+  }
+  return score + bonus;
 }
 
 function calcFitness(
@@ -115,12 +144,13 @@ function mutate(
         newOpts[g.key] = g.list[randomBetween(0, g.list.length - 1, true)];
       }
       // Mutate numeric value
-      // Mutation move value between 0.5% to 20%
+      // Mutation move value between 0.5% to 50%
       else {
         const direction = randomBetween(0, 1, true) === 0 ? -1 : 1;
         const range = g.max - g.min;
-        const diff = range * randomBetween(0.005, 0.2) * direction;
-        const newVal = oldOpts[g.key] + diff;
+        const diff = range * randomBetween(0.005, 0.5) * direction;
+        let newVal = oldOpts[g.key] + diff;
+        newVal = newVal < g.min ? g.min : newVal > g.max ? g.max : newVal;
         newOpts[g.key] = g.integer ? Math.floor(newVal) : newVal;
       }
     }
@@ -156,11 +186,11 @@ function breedNewGeneration(
   opts: GeneticOpts,
   gen: number
 ): TraderWorker[] {
-  const newGeneration: TraderWorker[] = [];
   // sort by fitness (but keep only different fitness at the top => try to avoid same indiv convergence)
   generation = generation.sort((a: any, b: any) => getFitness(b) - getFitness(a));
   const generationResort: TraderWorker[] = [];
   let currentIdx = 1;
+  // Sort indiv by fitness (take care of keeping only one version of each individu)
   generation.forEach((indiv, idx) => {
     // keep best indiv (first one)
     if (idx === 0) generationResort.push(indiv);
@@ -172,36 +202,40 @@ function breedNewGeneration(
     }
   });
   generation = generationResort;
+
+  /* CREATE NEW GENERATION */
+  const newGeneration: TraderWorker[] = [];
   // keep best indiv
   const bestIndivs = generation.slice(0, opts.elitism);
   for (const bestIndiv of bestIndivs) {
     // just rename best indiv with new name (will not rerun)
     bestIndiv.config.name = `${traderConfig.name}-gen${gen}-ind${newGeneration.length}`;
     // keep best unchanged
-    if (newGeneration.length < 1) {
+    if (newGeneration.length < opts.elitism) {// Math.floor(opts.elitism / 2) + 1) {
       newGeneration.push(bestIndiv);
     } else {
       // Mutate indiv or keep it unmutate
       const indiv =
-        randomBetween(0, 1) < 0.33 ? mutate(traderConfig, bestIndiv, opts, gen, newGeneration.length) : bestIndiv;
+        randomBetween(0, 1) < 0.5 ? mutate(traderConfig, bestIndiv, opts, gen, newGeneration.length) : bestIndiv;
       newGeneration.push(indiv);
     }
   }
   // Mutate or breed new indiv
   while (newGeneration.length < opts.popSize) {
-    // crossover 75% chance
-    if (randomBetween(0, 1) >= 0.25) {
+    // Breed indiv using crossover (66%)
+    if (randomBetween(0, 1) > 0.33) {
+      // other impl:
+      // let t2 = generation[randomBetween(0, generation.length - 1, true)];
+      /*const t1 =
+        generation[randomBetween(0, Math.floor(gen >= 10 ? generation.length - 1 : generation.length / 2), true)];
+      let t2 = generation[randomBetween(0, Math.floor(generation.length / 2), true)];
+      while (getFitness(t2) === getFitness(t1)) t2 = generation[randomBetween(0, generation.length - 1, true)];*/
       // Get parent1 and 2 randomly (Make sure parent1 and 2 are different)
-      /*const t1 = generation[randomBetween(0, Math.floor(generation.length / 2), true)];
-      let t2 =
-        generation[randomBetween(0, Math.floor(gen >= 10 ? generation.length - 1 : generation.length / 2), true)];*/
-      const t1 = generation[randomBetween(0, generation.length - 1, true)];
-      let t2 = generation[randomBetween(0, generation.length - 1, true)];
-      while (getFitness(t2) === getFitness(t1)) t2 = generation[randomBetween(0, generation.length - 1, true)];
+      const [t1, t2] = tournamentSelection(generation, 4);
       // create children
       newGeneration.push(crossover(`${traderConfig.name}-gen${gen}-ind${newGeneration.length}`, t1, t2, opts));
     }
-    // mutation
+    // Breed indiv using mutation (33%)
     else {
       const t = generation[randomBetween(0, generation.length - 1, true)];
       newGeneration.push(mutate(traderConfig, t, opts, gen, newGeneration.length));
@@ -277,7 +311,10 @@ export class Optimizer {
                     t.hasRunned = true;
                     resolve();
                   } catch (error) {
-                    await t.stop().catch(error => logger.error(error));
+                    // set fitness to -1 on error
+                    if (!t.fitnesses) t.fitnesses = [];
+                    t.fitnesses.push({ currentProfit: -1, percentTradeWin: -1, tradeFreqency: -1, total: -1 });
+                    if (t.trader.status !== Status.STOP) await t.stop().catch(error => logger.error(error));
                     reject(error);
                   }
                 })

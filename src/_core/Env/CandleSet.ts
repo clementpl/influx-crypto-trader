@@ -174,26 +174,24 @@ export class CandleSet {
 
     // Execute plugins
     for (const { opts, compute } of this.plugins) {
+      // Aggregated timeframe
       if (opts.aggTime) {
         const candles = this.getMarketCandles(`${symbol}:${opts.aggTime}`) as Candle[];
-        // const lastCandleAgg = candles.slice(-1)[0];
-        // Maybe make a ref
         newCandle.indicators = {
           ...newCandle.indicators,
-          ...(await compute(candles.slice(0, candles.length - 1), candles.slice(-1)[0])),
+          ...(await compute(candles, candles[candles.length - 1])),
         };
-      } else {
-        const candles = opts.aggTime ? (this.getMarketCandles(`${symbol}:${opts.aggTime}`) as Candle[]) : candlesSymbol;
+      }
+      // 1m timeframe
+      else {
+        // slice() + push() is faster than .concat()
+        const candles = candlesSymbol.slice();
+        candles.push(newCandle);
         newCandle.indicators = {
           ...newCandle.indicators,
           ...(await compute(candles, newCandle)),
         };
       }
-      /*const candles = opts.aggTime ? (this.getMarketCandles(`${symbol}:${opts.aggTime}`) as Candle[]) : candlesSymbol;
-      newCandle.indicators = {
-        ...newCandle.indicators,
-        ...(await compute(candles, newCandle)),
-      };*/
     }
 
     return newCandle;

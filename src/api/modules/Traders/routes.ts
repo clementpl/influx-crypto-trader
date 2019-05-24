@@ -5,6 +5,7 @@ const traderPayload: any = {
   name: Joi.string().required(),
   silent: Joi.boolean().optional(),
   test: Joi.boolean(),
+  flush: Joi.boolean(),
   strategie: Joi.string().required(),
   stratOpts: Joi.object().optional(),
   capital: Joi.number().required(),

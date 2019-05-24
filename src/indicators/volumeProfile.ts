@@ -13,7 +13,8 @@ const volumeProfile: CandleIndicator = (label: string, opts: VPConfig) => {
 
   // Process function (called with each new candle)
   return async (candles: Candle[], newCandle: Candle) => {
-    const data = candles.slice(-1).concat(newCandle);
+    const data = candles.slice(-1);
+    data.push(newCandle);
 
     const values: number[] = volumeProfileTI({
       close: data.map(c => c.close),

@@ -66,9 +66,6 @@ export class Exchange {
   public async buyMarket(base: string, quote: string, amount: number, lastCandle: Candle): Promise<ccxt.Order> {
     if (this.config.test) {
       const cost: number = +(lastCandle.close * amount).toFixed(8);
-      const fee: number = this.config.fees!;
-      // Recalculate amount substracting fees
-      // amount = +(amount - amount * fee).toFixed(8);
       return {
         id: '1111111',
         info: {},
@@ -90,11 +87,9 @@ export class Exchange {
     }
 
     // tslint:disable-next-line
-    return await this.exchange
-      .createMarketBuyOrder(base + '/' + quote, amount, { test: this.config.test })
-      .catch((error: any) => {
-        throw error;
-      });
+    return await this.exchange.createMarketBuyOrder(base + '/' + quote, amount).catch((error: any) => {
+      throw error;
+    });
   }
 
   /**
@@ -111,7 +106,6 @@ export class Exchange {
   public async sellMarket(base: string, quote: string, amount: number, lastCandle: Candle): Promise<ccxt.Order> {
     if (this.config.test) {
       const cost: number = +(lastCandle.close * amount).toFixed(8);
-      const fee: number = this.config.fees!;
       return {
         id: '1111111',
         info: {},
@@ -127,17 +121,15 @@ export class Exchange {
         amount,
         filled: amount,
         remaining: 0,
-        fee: this.calculateFee('buy', base, quote, amount, cost),
-        trades: [this.createTradeExecution('buy', base, quote, amount, lastCandle, cost)],
+        fee: this.calculateFee('sell', base, quote, amount, cost),
+        trades: [this.createTradeExecution('sell', base, quote, amount, lastCandle, cost)],
       };
     }
 
     // tslint:disable-next-line
-    return await this.exchange
-      .createMarketSellOrder(base + '/' + quote, amount, { test: this.config.test })
-      .catch((error: any) => {
-        throw error;
-      });
+    return await this.exchange.createMarketSellOrder(base + '/' + quote, amount).catch((error: any) => {
+      throw error;
+    });
   }
 
   /**
@@ -164,7 +156,7 @@ export class Exchange {
     };
     // TODO
     // Maybe use the ccxt function later (but onBuy return the cost in BTC and onSell in USDT)
-    // Will be better with every cost convert to the QUOTE currency
+    // Will be easier with every cost convert to the QUOTE currency
     // return this.exchange.calculateFee(base + '/' + quote, type, side, amount, lastCandle.close, type);
   }
 

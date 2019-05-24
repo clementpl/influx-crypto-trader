@@ -1,11 +1,13 @@
 node_modules/
-influx-crypto-watcher/
 trash/
 .vscode/
 .nyc_output/
 .coveralls.yml
+
+influx-crypto-watcher/
 log/
 dist/
 strategies/
 strategiesProd/
 optimizer/
+config/

@@ -40,6 +40,9 @@ export class Traders {
       if (!existsSync(strategiePath)) {
         return Boom.badRequest(`Strategy file not found at: ${strategiePath}`);
       }
+      if (await TraderModel.findOne({ name: traderConfig.name })) {
+        return Boom.badRequest(`Trader ${traderConfig.name} already exist`);
+      }
 
       // Create trader worker
       const trader = new TraderWorker(traderConfig);
