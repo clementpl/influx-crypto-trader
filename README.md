@@ -10,7 +10,7 @@ This project help you build trading strategy for cryptocurrencies and monitoring
 
 Features:
 
-- Simulation/Backtesting (Live TODO)
+- Live/Simulation/Backtesting
 - Configure trader to work with multiple cryptocurrencies and multiple timeframe easily
 - Create new indicator (nodejs)
 - Create your own strategy (nodejs)
@@ -320,8 +320,6 @@ The software let you deploy trader which will run in a live/simulation or backte
 }
 ```
 
-Every trader are persist to MongoDB to restart them on reboot (persist OK, restart TODO).
-
-I'm also working on machine learning stuff with tensorflow (Supervised and Reinforcement learning)
+Every Live/Simulation trader are persist to MongoDB to restart them you can use the api endpoint /traders/{name}/start
 
 You can email me at clement22860@gmail.com.
