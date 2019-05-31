@@ -15,6 +15,9 @@ const portfolioSchema = new Schema(
       totalValue: Number,
       fees: Number,
       currentProfit: Number,
+      holdProfit: Number,
+      nbTradeWin: Number,
+      percentTradeWin: Number,
     },
     trade: {
       orderBuy: Schema.Types.Mixed,
@@ -28,6 +31,9 @@ const portfolioSchema = new Schema(
         totalValue: Number,
         fees: Number,
         currentProfit: Number,
+        holdProfit: Number,
+        nbTradeWin: Number,
+        percentTradeWin: Number,
       },
     ],
     tradeHistory: [

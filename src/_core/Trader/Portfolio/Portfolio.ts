@@ -21,6 +21,9 @@ export interface PortfolioIndicators {
   totalValue: number;
   fees: number;
   currentProfit: number;
+  holdProfit: number;
+  nbTradeWin: number;
+  percentTradeWin: number;
 }
 
 export interface PortfolioTrade {
@@ -42,6 +45,7 @@ export class Portfolio {
   public indicatorHistory: PortfolioIndicators[] = [];
   public tradeHistory: PortfolioTrade[] = [];
   private lastCandle: Candle;
+  private firstCandle: Candle;
   // Buffer size of history (indicator/trades)
   private bufferSize: number = 2000;
   // InfluxDb client
@@ -106,6 +110,9 @@ export class Portfolio {
       assetCapital: 0,
       fees: 0,
       currentProfit: 0,
+      holdProfit: 0,
+      nbTradeWin: 0,
+      percentTradeWin: 0,
     };
     this.indicatorHistory = [];
     this.trade = undefined;
@@ -180,6 +187,10 @@ export class Portfolio {
     this.trade!.orderProfit =
       (order.cost - this.trade!.orderBuy.cost - (this.trade!.orderBuy.fee.cost + order.fee.cost)) /
       this.trade!.orderBuy.cost;
+    // Update others indicators
+    if (this.trade!.orderProfit > 0) this.indicators.nbTradeWin += 1;
+    this.indicators.percentTradeWin = this.indicators.nbTradeWin / this.tradeHistory.length;
+
     this.tradeHistory.pop();
     this.pushTrade();
     this.trade = undefined;
@@ -194,9 +205,14 @@ export class Portfolio {
    * @memberof Portfolio
    */
   public update(lastCandle: Candle): void {
+    if (!this.firstCandle) this.firstCandle = lastCandle;
+    /*
+      TODO: Update with percentage of %trade win/lost, Hold roi, ...
+    */
     this.lastCandle = lastCandle;
     this.indicators.totalValue = this.indicators.currentCapital + this.indicators.assetCapital * lastCandle.close;
     this.indicators.currentProfit = (this.indicators.totalValue - this.conf.capital) / this.conf.capital;
+    this.indicators.holdProfit = (this.lastCandle.close - this.firstCandle.close) / this.firstCandle.close;
     if (this.trade) {
       this.trade.orderProfit =
         (lastCandle.close * this.trade.orderBuy.filled - this.trade.orderBuy.cost - this.trade.orderBuy.fee.cost) /
