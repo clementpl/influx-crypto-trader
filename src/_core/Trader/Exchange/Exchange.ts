@@ -86,10 +86,14 @@ export class Exchange {
       };
     }
 
-    // tslint:disable-next-line
-    return await this.exchange.createMarketBuyOrder(base + '/' + quote, amount).catch((error: any) => {
+    try {
+      const order: ccxt.Order = await this.exchange.createMarketBuyOrder(base + '/' + quote, amount);
+      order.fee.cost = await this.convert(order.fee.cost, order.fee.currency, quote);
+      order.fee.currency = quote;
+      return order;
+    } catch (error) {
       throw error;
-    });
+    }
   }
 
   /**
@@ -126,10 +130,32 @@ export class Exchange {
       };
     }
 
-    // tslint:disable-next-line
-    return await this.exchange.createMarketSellOrder(base + '/' + quote, amount).catch((error: any) => {
+    try {
+      const order: ccxt.Order = await this.exchange.createMarketSellOrder(base + '/' + quote, amount);
+      order.fee.cost = await this.convert(order.fee.cost, order.fee.currency, quote);
+      order.fee.currency = quote;
+      return order;
+    } catch (error) {
       throw error;
-    });
+    }
+  }
+
+  /**
+   * Convert amount of source currency to target currency
+   * Example: convert(1, 'BNB', 'USDT') = 30
+   *
+   * @param amount amount of source currency to convert to target
+   * @param source currency of the amount (BNB)
+   * @param target converting to target currency (USDT)
+   */
+  private async convert(amount: number, source: string, target: string): Promise<number> {
+    if (source === target) return +amount.toFixed(8);
+    try {
+      const ticker = await this.exchange.fetchTicker(`${source}/${target}`);
+      return +(amount * ticker.close!).toFixed(8);
+    } catch (error) {
+      throw error;
+    }
   }
 
   /**
