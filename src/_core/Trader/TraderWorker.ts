@@ -1,6 +1,6 @@
 import { fork, ChildProcess } from 'child_process';
-import { TraderConfig, Trader } from './Trader';
-import { logger } from '@src/logger';
+import { TraderConfig, Trader, Status } from './Trader';
+import { deepFind } from '@src/_core/helpers';
 
 /**
  * TraderWorker class help to create a trader in another process (fork) and send command to the worker using IPC
@@ -14,6 +14,7 @@ export class TraderWorker {
   public trader: Trader;
   // Trader child process
   private traderProcess: ChildProcess;
+  private killed: boolean = false;
   // Track command response to send back (with promise)
   private resolver: { [command: string]: { resolve: any; reject: any } } = {};
 
@@ -38,6 +39,7 @@ export class TraderWorker {
       silent: this.opts.silent,
       execArgv: ['-r', 'ts-node/register', '-r', 'tsconfig-paths/register'],
     });
+    this.killed = false;
     // Dispatch response command
     this.traderProcess.on('message', msg => {
       // Get response
@@ -49,6 +51,7 @@ export class TraderWorker {
       // STOP special behavior
       if (command === 'STOP' || command === 'DELETE') {
         this.traderProcess.kill();
+        this.killed = true;
       }
       // Default behavior (resolve promise)
       if (code === -1) {
@@ -67,8 +70,10 @@ export class TraderWorker {
    * @memberof TraderWorker
    */
   public async stop(): Promise<any> {
-    this.send('STOP');
-    return this.addResolver('STOP');
+    if (!this.killed) {
+      this.send('STOP');
+      return this.addResolver('STOP');
+    }
   }
 
   /**
@@ -78,8 +83,10 @@ export class TraderWorker {
    * @memberof TraderWorker
    */
   public async delete(): Promise<any> {
-    this.send('DELETE');
-    return this.addResolver('DELETE');
+    if (!this.killed) {
+      this.send('DELETE');
+      return this.addResolver('DELETE');
+    }
   }
 
   /**
@@ -89,8 +96,10 @@ export class TraderWorker {
    * @memberof TraderWorker
    */
   public async start(): Promise<any> {
-    this.send('START');
-    return this.addResolver('START');
+    if (!this.killed) {
+      this.send('START');
+      return this.addResolver('START');
+    }
   }
 
   /**
@@ -101,8 +110,11 @@ export class TraderWorker {
    * @memberof TraderWorker
    */
   public async get(path: string): Promise<any> {
-    this.send('GET', path);
-    return this.addResolver('GET');
+    if (!this.killed) {
+      this.send('GET', path);
+      return this.addResolver('GET');
+    }
+    return deepFind(this.trader, path);
   }
 
   /**
@@ -112,8 +124,11 @@ export class TraderWorker {
    * @memberof TraderWorker
    */
   public async getStatus(): Promise<any> {
-    this.send('STATUS');
-    return this.addResolver('STATUS');
+    if (!this.killed) {
+      this.send('STATUS');
+      return this.addResolver('STATUS');
+    }
+    return Status.STOP;
   }
 
   /**
