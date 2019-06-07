@@ -165,47 +165,48 @@ export class Trader {
       let data: { done: boolean; value: CandleSet | undefined } = { done: false, value: undefined };
       let candleSet: CandleSet | undefined;
       while (!this.shouldStop && !data.done) {
-        this.checkTrader();
-        // Fetch data
-        data = await fetcher.next();
-        if (!data.done) {
-          candleSet = data.value as CandleSet;
-          const lastCandle = candleSet.getLast(this.symbol) as Candle;
-          // Push indicators to bufferInputs (will write it to influx)
-          if (Object.keys(lastCandle.indicators || {}).length > 0) {
-            // TODO Write multiple INPUT serie (ETH,BTC, ETH15m, BTC15m, ...)
-            // this.env.watchers.forEach ...
-            this.bufferInputs.push({
-              time: lastCandle.time,
-              values: flatten(lastCandle.indicators),
-            });
-          }
-          // Update portfolio with new candle
-          this.portfolio.update(lastCandle);
-
-          // Before strat callback
-          if (this.strategy.before) await this.strategy.before(candleSet, this, this.config.stratOpts);
-          // Run strategy
-          const advice = await this.strategy.run(candleSet, this, this.config.stratOpts);
-          // Check if advice is correct (cant buy more than one order at a time)
-          const error = this.checkAdvice(advice);
-          // Process advice (if error => wait)
-          if (!error) {
-            if (advice === 'buy') {
-              await this.buy(lastCandle);
-            } else if (advice === 'sell') {
-              await this.sell(lastCandle);
+        if (await this.checkTrader()) {
+          // Fetch data
+          data = await fetcher.next();
+          if (!data.done) {
+            candleSet = data.value as CandleSet;
+            const lastCandle = candleSet.getLast(this.symbol) as Candle;
+            // Push indicators to bufferInputs (will write it to influx)
+            if (Object.keys(lastCandle.indicators || {}).length > 0) {
+              // TODO Write multiple INPUT serie (ETH,BTC, ETH15m, BTC15m, ...)
+              // this.env.watchers.forEach ...
+              this.bufferInputs.push({
+                time: lastCandle.time,
+                values: flatten(lastCandle.indicators),
+              });
             }
-          } else {
-            // WAIT
-            logger.info(error);
-          }
-          // After strat callback
-          if (this.strategy.after) await this.strategy.after(candleSet, this, this.config.stratOpts);
+            // Update portfolio with new candle
+            this.portfolio.update(lastCandle);
 
-          // Persist inputs/portfolio to influx
-          await this.flushInputs();
-          await this.portfolio.save();
+            // Before strat callback
+            if (this.strategy.before) await this.strategy.before(candleSet, this, this.config.stratOpts);
+            // Run strategy
+            const advice = await this.strategy.run(candleSet, this, this.config.stratOpts);
+            // Check if advice is correct (cant buy more than one order at a time)
+            const error = this.checkAdvice(advice);
+            // Process advice (if error => wait)
+            if (!error) {
+              if (advice === 'buy') {
+                await this.buy(lastCandle);
+              } else if (advice === 'sell') {
+                await this.sell(lastCandle);
+              }
+            } else {
+              // WAIT
+              logger.info(error);
+            }
+            // After strat callback
+            if (this.strategy.after) await this.strategy.after(candleSet, this, this.config.stratOpts);
+
+            // Persist inputs/portfolio to influx
+            await this.flushInputs();
+            await this.portfolio.save();
+          }
         }
       }
       // Strat finished
@@ -246,10 +247,16 @@ export class Trader {
    * @private
    * @memberof Trader
    */
-  private checkTrader() {
+  private async checkTrader(): Promise<boolean> {
+    const errorHandler = (error: any) => {
+      throw error;
+    };
     if (this.portfolio.indicators.currentProfit < -0.5) {
-      throw new Error(`[${this.config.name}] Stop trader too much damage (50% deficit)`);
+      logger.info(`[${this.config.name}] Stop trader too much damage (50% deficit)`);
+      await this.stop().catch(errorHandler);
+      return false;
     }
+    return true;
   }
   /**
    * Helper check if advice is correct (follow buy/sell/buy/sell)
