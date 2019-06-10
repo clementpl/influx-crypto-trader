@@ -121,7 +121,7 @@ export class Influx {
         `SELECT first(open) as open, max(high) as high, min(low) as low, last(close) as close, sum(volume) as volume
          FROM ${MEASUREMENT_OHLC}
          WHERE ${tagsToString(tags)} AND time >= '${since}' AND time < '${getStop(since, limit)}'
-         GROUP BY time(${aggregatedTime}) fill(none) limit ${limit + 1}`,
+         GROUP BY time(${aggregatedTime}) fill(none) limit ${limit}`,
         {
           database: this.conf.stockDatabase,
         }

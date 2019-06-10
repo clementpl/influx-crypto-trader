@@ -46,8 +46,8 @@ export class Env {
   private shouldStop: boolean;
 
   constructor(public conf: EnvConfig) {
-    this.conf.batchSize = this.conf.batchSize || 1000;
-    this.conf.warmup = this.conf.warmup || 1000;
+    this.conf.batchSize = this.conf.batchSize || 10000;
+    this.conf.warmup = this.conf.warmup || 10000;
     this.candleSet = new CandleSet({
       bufferSize: conf.bufferSize || 5000,
       indicators: conf.candleSetPlugins || [],

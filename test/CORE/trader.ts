@@ -48,7 +48,7 @@ describe('Trader', () => {
       chai.expect(trader.portfolio.indicators.fees).equal(0);
       chai.expect(trader.portfolio.indicators.totalValue).equal(traderConf.capital);
       // Check strategy coherence
-      chai.expect(countStratCall).equal(5);
+      chai.expect(countStratCall).equal(4);
       const exepectedTimestamps = [
         '2018-02-20T00:00:00.000Z',
         '2018-02-20T00:01:00.000Z',
