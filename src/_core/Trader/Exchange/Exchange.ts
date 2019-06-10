@@ -34,6 +34,7 @@ export class Exchange {
    *
    * @param {string} base
    * @param {string} quote
+   * @param {boolean} [fake=false]
    * @returns {Promise<ccxt.Market>}
    * @memberof Exchange
    */
