@@ -286,7 +286,11 @@ export class Trader {
    */
   private async buy(lastCandle: Candle): Promise<void> {
     try {
-      const exchangeInfo: Market = await this.exchange.getExchangeInfo(this.config.base, this.config.quote);
+      const exchangeInfo: Market = await this.exchange.getExchangeInfo(
+        this.config.base,
+        this.config.quote,
+        this.config.env.backtest ? true : false
+      );
       const minCost = exchangeInfo.limits.cost ? exchangeInfo.limits.cost.min : 0;
       if (this.portfolio.indicators.currentCapital < minCost) {
         logger.error(

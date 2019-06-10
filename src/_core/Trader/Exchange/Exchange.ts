@@ -37,7 +37,19 @@ export class Exchange {
    * @returns {Promise<ccxt.Market>}
    * @memberof Exchange
    */
-  public async getExchangeInfo(base: string, quote: string): Promise<ccxt.Market> {
+  public async getExchangeInfo(base: string, quote: string, fake: boolean = false): Promise<ccxt.Market> {
+    if (fake) {
+      return {
+        id: '',
+        symbol: '',
+        base: '',
+        quote: '',
+        active: true,
+        precision: { amount: 0, price: 0, cost: 0 },
+        limits: { amount: { min: 0, max: 0 }, price: { min: 0, max: 0 } },
+        info: {},
+      };
+    }
     if (!this.marketsInfo) {
       const errorHandler = (error: Error) => {
         throw error;
