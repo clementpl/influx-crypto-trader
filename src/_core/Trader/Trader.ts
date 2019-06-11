@@ -16,6 +16,7 @@ export interface TraderConfig {
   restart?: boolean;
   silent?: boolean;
   flush?: boolean;
+  saveInputs?: boolean;
   env: EnvConfig;
   strategie: string;
   stratOpts: any;
@@ -64,6 +65,7 @@ export class Trader {
   private shouldStop: boolean = false;
   // Buffer for writing candles data (with indicators) to influxDB
   private bufferInputs: any[] = [];
+  private saveInputs: boolean;
   private flushTimeout = 10;
   private lastBufferFlush: moment.Moment = moment();
 
@@ -75,6 +77,7 @@ export class Trader {
     });
     this.isBacktesting = config.env.backtest ? true : false;
     this.config.flush = this.config.flush === false ? false : true;
+    this.saveInputs = this.config.saveInputs ? true : false;
   }
 
   /**
@@ -174,7 +177,7 @@ export class Trader {
             candleSet = data.value as CandleSet;
             const lastCandle = candleSet.getLast(this.symbol) as Candle;
             // Push indicators to bufferInputs (will write it to influx)
-            if (Object.keys(lastCandle.indicators || {}).length > 0) {
+            if (this.saveInputs && Object.keys(lastCandle.indicators || {}).length > 0) {
               // TODO Write multiple INPUT serie (ETH,BTC, ETH15m, BTC15m, ...)
               // this.env.watchers.forEach ...
               this.bufferInputs.push({

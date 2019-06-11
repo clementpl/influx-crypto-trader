@@ -3,9 +3,10 @@ import { Traders } from './Traders';
 
 const traderPayload: any = {
   name: Joi.string().required(),
+  test: Joi.boolean().required(),
   silent: Joi.boolean().optional(),
-  test: Joi.boolean(),
-  flush: Joi.boolean(),
+  flush: Joi.boolean().optional(),
+  saveInputs: Joi.boolean().optional(),
   strategie: Joi.string().required(),
   stratOpts: Joi.object().optional(),
   capital: Joi.number().required(),
