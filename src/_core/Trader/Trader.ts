@@ -135,13 +135,15 @@ export class Trader {
    * @memberof Trader
    */
   public async stop(status?: Status): Promise<void> {
-    this.status = status || Status.STOP;
-    this.shouldStop = true;
-    this.env.stop();
-    await this.portfolio.flush(true);
-    await this.flushInputs(true);
-    await this.save();
-    logger.info(`[${this.config.name}] Trader ${this.config.name} stopped`);
+    if (this.status !== Status.STOP) {
+      this.status = status || Status.STOP;
+      this.shouldStop = true;
+      this.env.stop();
+      await this.portfolio.flush(true);
+      await this.flushInputs(true);
+      await this.save();
+      logger.info(`[${this.config.name}] Trader ${this.config.name} stopped`);
+    }
   }
 
   /**
