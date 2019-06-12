@@ -29,8 +29,8 @@ export const getTraderConfig = (strat: string): TraderConfig => ({
     batchSize: 1000,
     bufferSize: 5000,
     backtest: {
-      start: '2018-04-01T00:00:00Z',
-      stop: '2018-06-01T00:00:00Z',
+      start: '2018-02-20T00:00:00Z',
+      stop: '2018-03-15T00:00:00Z',
     },
     candleSetPlugins: [
       {
@@ -44,17 +44,17 @@ export const getTraderConfig = (strat: string): TraderConfig => ({
         },
       },
       {
-        label: 'macd',
+        label: 'macd2',
         opts: {
           name: 'macd',
-          aggTime: '12h',
+          aggTime: '2h',
           fastPeriod: 12,
           slowPeriod: 45,
           signalPeriod: 9,
         },
       },
       {
-        label: 'macd',
+        label: 'macd3',
         opts: {
           name: 'macd',
           aggTime: '1h',
