@@ -6,4 +6,5 @@ async function main() {
   await runTrader();
 }
 
-main();
+// tslint:disable-next-line
+main().catch(error => console.log(error));
