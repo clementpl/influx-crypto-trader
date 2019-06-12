@@ -20,6 +20,6 @@
     "sourceMap": true,
     "resolveJsonModule": true
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "config/*.json", "config/*.ts", "strategies/**/*.ts"],
+  "include": ["src/**/*.ts", "test/**/*.ts", "config/*.json", "config/*.ts", "strategies/**/*.ts", "benchmark/**/*.ts"],
   "exclude": ["./node_modules"]
 }

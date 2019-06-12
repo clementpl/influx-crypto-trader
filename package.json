@@ -10,7 +10,7 @@
     "test": "NODE_ENV=TEST nyc mocha --timeout 60000 -r ts-node/register -r tsconfig-paths/register -P ./tsconfig.json test/index.ts",
     "start": "ts-node -P ./tsconfig.json -r tsconfig-paths/register ./src/index.ts",
     "build": "tsc;tspath",
-    "benchmark": "ts-node -P ./tsconfig.json -r tsconfig-paths/register ./benchmark/TraderBench.ts"
+    "benchmark": "ts-node -P ./tsconfig.json -r tsconfig-paths/register ./benchmark/run.ts"
   },
   "author": "",
   "license": "ISC",
