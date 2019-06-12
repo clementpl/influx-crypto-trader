@@ -1,46 +1,70 @@
-import { CandleSet, Candle } from '_core/Env/CandleSet';
-import { Trader } from 'exports';
+import { CandleSet } from '@src/_core/Env/CandleSet';
+import { Trader, Candle, EnvConfig } from '@src/exports';
 
-// static give number of order running
-let nbOrder = 0;
-let i = 0;
-// export strategy
-export default async function yourStrategy(candleSet: CandleSet, trader: Trader): Promise<string> {
-  // last
-  if (i % 1000 === 0) console.log('RELB');
-  i++;
-  const lastCandle = candleSet.getLast('binance:BTC:USDT') as Candle;
-  const lastMACD = lastCandle.indicators.MACD;
-  let MACDAdvice = '';
-  if (
-    lastMACD.MACD > lastMACD.signal &&
-    lastCandle.indicators.RSI < 45
-    // && lastCandle.close < lastCandle.indicators.BB.middle
-  ) {
-    MACDAdvice = 'buy';
-  } else if (lastMACD.MACD < lastMACD.signal - 5) {
-    MACDAdvice = 'sell';
-  }
-
-  const advice = MACDAdvice;
-  const currentTrade = trader.portfolio.trade;
-
-  if (!currentTrade && advice === 'buy') {
-    nbOrder++;
-    /*console.log('buy');
-    console.log(lastMACD);
-    console.log(lastCandle.indicators.RSI);*/
-    return 'buy';
-  }
-  // SELL
-  if (
-    currentTrade &&
-    (advice === 'sell' || currentTrade.orderProfit < -0.03)
-    // currentTrade &&
-    // (rand === 2 || currentTrade.orderProfit >= 0.05 || currentTrade.orderProfit < -0.03)
-  ) {
-    nbOrder--;
-    return 'sell';
-  }
-  return '';
+// Create config:
+//  - Set default conf
+//  - Set plugins to EnvConfig
+function makeConfig(env: EnvConfig, stratOpts: any) {
+  const opts = Object.assign(
+    {
+      fastPeriod: 12,
+      slowPeriod: 26,
+      signalPeriod: 9,
+      agg1: '15m',
+    },
+    stratOpts
+  );
+  const name = 'macd';
+  const plugins = [
+    {
+      label: 'macd',
+      opts: {
+        name,
+        aggTime: opts.agg1,
+        fastPeriod: opts.fastPeriod,
+        slowPeriod: opts.slowPeriod,
+        signalPeriod: opts.signalPeriod,
+      },
+    }
+  ];
+  if (!env.candleSetPlugins) env.candleSetPlugins = [];
+  plugins.forEach(p => (<any[]>env.candleSetPlugins).push(p));
 }
+// export strategy
+export default {
+  beforeAll: function(env: EnvConfig, trader: Trader, stratOpts: any) {
+    makeConfig(env, stratOpts);
+    // Make symbol from trader config
+    this.symbol = `${trader.config.exchange.name}:${trader.config.base}:${trader.config.quote}`;
+    this.maxProfit = 0;
+  },
+  run: async function(candleSet: CandleSet, trader: Trader): Promise<string> {
+    // const opts = trader.config.stratOpts;
+    const currentTrade = trader.portfolio.trade;
+    if (currentTrade && currentTrade.orderProfit > this.maxProfit) {
+      this.maxProfit = currentTrade.orderProfit;
+    }
+    const lastCandle = candleSet.getLast(this.symbol) as Candle;
+    let MACDAdvice = '';
+    if (
+      lastCandle.indicators!['macd-MACD'] > lastCandle.indicators!['macd-signal']
+    ) {
+      MACDAdvice = 'buy';
+    } else if (
+      lastCandle.indicators!['macd-MACD'] < lastCandle.indicators!['macd-signal']
+    ) {
+      MACDAdvice = 'sell';
+    }
+
+    const advice = MACDAdvice;
+    if (!currentTrade && advice === 'buy') {
+      return 'buy';
+    }
+    // SELL
+    if (currentTrade && advice === 'sell') {
+      this.maxProfit = 0;
+      return 'sell';
+    }
+    return '';
+  },
+};
