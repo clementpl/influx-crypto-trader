@@ -1,5 +1,65 @@
 import { TraderConfig } from '@src/exports';
 
+const MACDPlugins = [
+  {
+    label: 'macd',
+    opts: {
+      name: 'macd',
+      aggTime: '4h',
+      fastPeriod: 12,
+      slowPeriod: 45,
+      signalPeriod: 9,
+    },
+  },
+  {
+    label: 'macd2',
+    opts: {
+      name: 'macd',
+      aggTime: '2h',
+      fastPeriod: 12,
+      slowPeriod: 45,
+      signalPeriod: 9,
+    },
+  },
+  {
+    label: 'macd3',
+    opts: {
+      name: 'macd',
+      aggTime: '1h',
+      fastPeriod: 12,
+      slowPeriod: 45,
+      signalPeriod: 9,
+    },
+  },
+];
+
+const SMAPlugins = [
+  {
+    label: 'sma',
+    opts: {
+      name: 'sma',
+      aggTime: '1h',
+      period: 25,
+    },
+  },
+  {
+    label: 'sma1',
+    opts: {
+      name: 'sma',
+      aggTime: '15m',
+      period: 25,
+    },
+  },
+  {
+    label: 'sma2',
+    opts: {
+      name: 'sma',
+      aggTime: '4h',
+      period: 10,
+    },
+  },
+];
+
 export const getTraderConfig = (strat: string): TraderConfig => ({
   name: 'benchmark_trader',
   test: true,
@@ -32,38 +92,7 @@ export const getTraderConfig = (strat: string): TraderConfig => ({
       start: '2018-02-20T00:00:00Z',
       stop: '2018-03-15T00:00:00Z',
     },
-    candleSetPlugins: [
-      {
-        label: 'macd',
-        opts: {
-          name: 'macd',
-          aggTime: '4h',
-          fastPeriod: 12,
-          slowPeriod: 45,
-          signalPeriod: 9,
-        },
-      },
-      {
-        label: 'macd2',
-        opts: {
-          name: 'macd',
-          aggTime: '2h',
-          fastPeriod: 12,
-          slowPeriod: 45,
-          signalPeriod: 9,
-        },
-      },
-      {
-        label: 'macd3',
-        opts: {
-          name: 'macd',
-          aggTime: '1h',
-          fastPeriod: 12,
-          slowPeriod: 45,
-          signalPeriod: 9,
-        },
-      },
-    ],
+    candleSetPlugins: strat === 'Benchmark/MACD' ? MACDPlugins : SMAPlugins,
   },
 });
 
