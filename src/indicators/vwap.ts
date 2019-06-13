@@ -3,17 +3,26 @@ import { Candle } from '@core/Env/Candle';
 import { CandleIndicator } from './CandleIndicator';
 
 interface VWAPConfig {
-  name: string;
+  period: number;
 }
 
+const DEFAULT_CONF: VWAPConfig = {
+  period: 25,
+};
+
 const vwap: CandleIndicator = (label: string, opts: VWAPConfig) => {
+  // Merge config and extract key
+  const conf = {
+    ...DEFAULT_CONF,
+    ...opts,
+  };
+
   // indicators static variables
   const scope = {};
 
   // Process function (called with each new candle)
   return async (candles: Candle[], newCandle: Candle) => {
-    const data = candles.slice(-1);
-    data.push(newCandle);
+    const data = candles.slice(-conf.period - 1);
 
     const values: number[] = vwapTI({
       close: data.map(c => c.close),

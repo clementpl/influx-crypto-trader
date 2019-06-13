@@ -62,6 +62,9 @@ export class CandleSet {
       this.config.aggTimes.forEach(aggTime => {
         const candleAgg = this.getMarketCandles(`${symbol}:${aggTime}`, aggTime) as CandlesAgg;
         candleAgg.getLast().indicators = newCandle.indicators;
+        if (candleAgg.getCandles().length > this.config.bufferSize) {
+          candleAgg.getCandles().splice(0, candleAgg.getCandles().length - this.config.bufferSize);
+        }
       });
     }
     if (candlesSymbol.length > this.config.bufferSize) {

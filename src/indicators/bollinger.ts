@@ -28,8 +28,7 @@ const bollinger: CandleIndicator = (label: string, opts: BollingerConfig) => {
   // Process function (called with each new candle)
   return async (candles: Candle[], newCandle: Candle) => {
     if (candles.length < conf.period) return {};
-    candles = candles.slice(-conf.period);
-    candles.push(newCandle);
+    candles = candles.slice(-conf.period - 1);
     // Calc MACD
     const values: BollingerBandsOutput[] = bollingerbands({
       ...conf,

@@ -4,17 +4,28 @@ import { CandleIndicator } from './CandleIndicator';
 import { mergeLabel } from './helpers';
 
 interface VPConfig {
-  name: string;
+  period: number;
+  noOfBars: number;
 }
 
+const DEFAULT_CONF: VPConfig = {
+  period: 25,
+  noOfBars: 1,
+};
+
 const volumeProfile: CandleIndicator = (label: string, opts: VPConfig) => {
+  // Merge config and extract key
+  const conf = {
+    ...DEFAULT_CONF,
+    ...opts,
+  };
+
   // indicators static variables
   const scope = {};
 
   // Process function (called with each new candle)
   return async (candles: Candle[], newCandle: Candle) => {
-    const data = candles.slice(-1);
-    data.push(newCandle);
+    const data = candles.slice(-conf.period - 1);
 
     const values: number[] = volumeProfileTI({
       close: data.map(c => c.close),
@@ -22,7 +33,7 @@ const volumeProfile: CandleIndicator = (label: string, opts: VPConfig) => {
       high: data.map(c => c.high),
       low: data.map(c => c.low),
       volume: data.map(c => c.volume),
-      noOfBars: 1,
+      noOfBars: conf.noOfBars,
     });
 
     // create an object like { label-MACD: 10..., label-signal: 8..., label-histogram: ...}

@@ -25,9 +25,7 @@ const DEFAULT_CONF: MACDConfig = {
 // let i = 0;
 const macd: CandleIndicator = (label: string, opts: MACDConfig) => {
   // indicators static variables
-  const scope: { candles: Candle[]; lastCandle?: Candle } = {
-    candles: [],
-  };
+  const scope = {};
   // Merge config and extract key
   const { key, ...conf } = {
     ...DEFAULT_CONF,
@@ -44,7 +42,6 @@ const macd: CandleIndicator = (label: string, opts: MACDConfig) => {
       values: candles.slice(-conf.slowPeriod - conf.signalPeriod).map(c => c[key]),
     });
 
-    scope.lastCandle = newCandle;
     // Get MACD Output to return
     // create an object like { ${label}-MACD: 10..., ${label}-signal: 8..., ${label}-histogram: ...}
     return mergeLabel(values[values.length - 1], label);
