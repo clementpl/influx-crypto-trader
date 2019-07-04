@@ -93,7 +93,9 @@ export class Portfolio {
     const portfolio = await PortfolioModel.findOne({ name: this.conf.name });
     if (!portfolio) throw Error(`Cannot find portoflio ${this.conf.name}`);
     this.indicators = portfolio.indicators;
-    this.trade = portfolio.trade;
+    // BUG: if (portfolio.trade) always true even when portfolio.trade = null (check console.log)
+    // ugly fix...
+    this.trade = portfolio.trade && portfolio.trade.orderSell ? portfolio.trade : undefined;
     this.tradeHistory = portfolio.tradeHistory;
     this.indicatorHistory = portfolio.indicatorHistory;
   }
