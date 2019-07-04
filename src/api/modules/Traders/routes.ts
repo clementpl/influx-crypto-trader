@@ -71,6 +71,15 @@ export const routes: any[] = [
   },
   {
     method: 'GET',
+    path: '/traders/{name}/stop',
+    handler: Traders.stopTrader,
+    options: {
+      tags: ['Traders', 'API'],
+      description: 'GET stop a specific trader (still persisted in mongo/influx)',
+    },
+  },
+  {
+    method: 'GET',
     path: '/traders',
     handler: Traders.getTraders,
     options: {
