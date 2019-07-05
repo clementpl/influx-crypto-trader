@@ -4,6 +4,7 @@ import { logger } from '@src/logger';
 import { Influx, OHLCVTags, OHLCV } from '@core/Influx/Influx';
 import { sleep } from '@core/helpers';
 import { CandleSet } from './CandleSet';
+import { Candle } from '@src/_core/Env/Candle';
 
 export interface PluginConfig {
   label: string;
@@ -117,16 +118,22 @@ export class Env {
             limit: batchSize,
             since: since.utc().format(),
           });
+          const lastValue = this.candleSet.getLast(Env.makeSymbol(tags)) as Candle;
           // Update data (if data fetched)
           if (ret && ret.length > 0) {
-            const lastValue = this.candleSet.getLast(Env.makeSymbol(tags));
             await this.candleSet.push(ret, Env.makeSymbol(tags));
             const newValue = this.candleSet.getLast(Env.makeSymbol(tags));
             // Check if new value inserted
             if (JSON.stringify(newValue) !== JSON.stringify(lastValue)) {
               hasUpdate = true;
             }
-          } else logger.info(`[STREAMING] No data fetched since ${since.utc().format()}`);
+          } else {
+            logger.info(
+              `[STREAMING] No data fetched since ${moment(lastValue.time)
+                .utc()
+                .format()}`
+            );
+          }
         }
         // Yield only if new data detected
         if (hasUpdate) {

@@ -45,7 +45,7 @@ export class Portfolio {
   public indicatorHistory: PortfolioIndicators[] = [];
   public tradeHistory: PortfolioTrade[] = [];
   private lastCandle: Candle;
-  private firstCandle: Candle;
+  private firstCandle: Candle | undefined;
   // Buffer size of history (indicator/trades)
   private bufferSize: number = 2000;
   // InfluxDb client
@@ -95,9 +95,10 @@ export class Portfolio {
     this.indicators = portfolio.indicators;
     // BUG: if (portfolio.trade) always true even when portfolio.trade = null (check console.log)
     // ugly fix...
-    this.trade = portfolio.trade && portfolio.trade.orderSell ? portfolio.trade : undefined;
+    this.trade = portfolio.trade && portfolio.trade.orderBuy ? portfolio.trade : undefined;
     this.tradeHistory = portfolio.tradeHistory;
     this.indicatorHistory = portfolio.indicatorHistory;
+    this.firstCandle = portfolio.firstCandle;
   }
 
   /**
@@ -119,6 +120,7 @@ export class Portfolio {
     this.indicatorHistory = [];
     this.trade = undefined;
     this.tradeHistory = [];
+    this.firstCandle = undefined;
   }
 
   /**
@@ -263,6 +265,7 @@ export class Portfolio {
           trade: this.trade,
           indicatorHistory: this.indicatorHistory,
           tradeHistory: this.tradeHistory,
+          firstCandle: this.firstCandle,
         };
         await PortfolioModel.findOneAndUpdate({ name: this.conf.name }, portfolio, { upsert: true });
       }

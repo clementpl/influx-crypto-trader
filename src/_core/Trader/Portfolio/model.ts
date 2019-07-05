@@ -1,5 +1,6 @@
 import { Schema, model, Document } from 'mongoose';
 import { PortfolioIndicators, PortfolioTrade } from '@src/_core/Trader/Portfolio/Portfolio';
+import { Candle } from '@src/_core/Env/Candle';
 
 const portfolioSchema = new Schema(
   {
@@ -57,6 +58,7 @@ export interface PortfolioModel extends Document {
   trade: PortfolioTrade;
   indicatorHistory: PortfolioIndicators[];
   tradeHistory: PortfolioTrade[];
+  firstCandle: Candle | undefined;
 }
 
 // Export Portfolio model
