@@ -190,7 +190,7 @@ export class Exchange {
     return {
       type, // Taker or maker (side)
       currency: quote, // which currency the fee is (usually quote)
-      cost: +(this.config.fees! * cost).toFixed(8), // the fee amount in that currency
+      cost: +(this.config.fees! * cost).toFixed(8), // the fee amount in quote currency
       rate: this.config.fees!, // the fee rate (if available)
     };
     // TODO

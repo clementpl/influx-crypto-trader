@@ -142,8 +142,8 @@ export class Portfolio {
    * @memberof Portfolio
    */
   public async notifyBuy(order: Order): Promise<void> {
-    // on Buy currentCapital decrease by the cost (fees cost is include in it so no need to add it again)
-    this.indicators.currentCapital -= order.cost /* + order.fee.cost*/;
+    // on Buy currentCapital decrease by the cost 
+    this.indicators.currentCapital -= order.cost + order.fee.cost;
     this.indicators.assetCapital += order.filled;
     this.indicators.fees += order.fee.cost;
     this.buyBuffer.push({

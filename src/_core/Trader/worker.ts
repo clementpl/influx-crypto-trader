@@ -3,6 +3,9 @@ import { deepFind, sleep } from '../helpers';
 import { Mongo } from '@src/_core/Mongo/Mongo';
 import { config as projectConfig } from '@config/config';
 
+// TODO: Worker threads
+// https://wanago.io/2019/05/06/node-js-typescript-12-worker-threads/
+
 /**
  * Helper send error to master process
  *
