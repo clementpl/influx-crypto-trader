@@ -32,6 +32,7 @@ describe('CRUD Traders', () => {
   it('Create a new trader and backtest it on 5 minutes (BTC/USDT)', done => {
     const traderConf = getTraderConfig('wait');
     traderConf.silent = true;
+    traderConf.persist = false;
     traderConf.env.backtest = {
       start: '2018-02-20T00:00:00Z',
       stop: '2018-02-20T00:04:00Z',
@@ -52,6 +53,7 @@ describe('CRUD Traders', () => {
     const traderConf = getTraderConfig('wait');
     traderConf.name = 'test_streaming';
     traderConf.silent = true;
+    traderConf.persist = true;
     traderConf.env.backtest = undefined;
     chai
       .request(server.listener)
@@ -62,7 +64,7 @@ describe('CRUD Traders', () => {
         res.body.msg.should.be.a('string');
         chai.expect(res.body.msg).equal(traderConf.name);
         // Check if trader created in mongo
-        await sleep(1000);
+        await sleep(3000);
         let resp = await chai.request(server.listener).get('/traders');
         chai.expect(resp.body.length).equal(1);
         chai.expect(resp.body[0].status).equal('RUNNING');

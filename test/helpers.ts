@@ -3,6 +3,7 @@ import { TraderConfig } from '@src/exports';
 export const getTraderConfig = (strat: string): TraderConfig => ({
   name: 'test_trader',
   test: true,
+  persist: false,
   strategie: `test/${strat}`,
   stratOpts: {
     stopLoss: 0.03,
