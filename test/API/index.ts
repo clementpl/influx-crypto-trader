@@ -84,7 +84,89 @@ describe('CRUD Traders', () => {
       });
   });
 
-  it('Delete trader test_streaming', done => {
+  it('Stop trader test_streaming', done => {
+    const traderConfName = 'test_streaming';
+    chai
+      .request(server.listener)
+      .get(`/traders/${traderConfName}/stop`)
+      .end(async (err, res) => {
+        res.should.have.status(200);
+        chai
+          .request(server.listener)
+          .get(`/traders/${traderConfName}`)
+          .end(async (err, res) => {
+            res.should.have.status(200);
+            chai.expect(res.body.status).equal('STOP');
+            done();
+          });
+      });
+  });
+
+  it('Start trader test_streaming', done => {
+    const traderConfName = 'test_streaming';
+    chai
+      .request(server.listener)
+      .get(`/traders/${traderConfName}/start`)
+      .end(async (err, res) => {
+        res.should.have.status(200);
+        await sleep(3000);
+        chai
+          .request(server.listener)
+          .get(`/traders/${traderConfName}`)
+          .end(async (err, res) => {
+            res.should.have.status(200);
+            chai.expect(res.body.status).equal('RUNNING');
+            done();
+          });
+      });
+  });
+
+  it('Delete a running trader test_streaming', done => {
+    const traderConfName = 'test_streaming';
+    // delete it
+    chai
+      .request(server.listener)
+      .del(`/traders/${traderConfName}`)
+      .end(async (err, res) => {
+        res.should.have.status(200);
+        // Check if trader delete from mongo
+        const resp = await chai.request(server.listener).get('/traders');
+        chai.expect(resp.body.length).equal(0);
+        done();
+      });
+  });
+
+  it('Create a trader (streaming) and stop it', done => {
+    const traderConf = getTraderConfig('wait');
+    traderConf.name = 'test_streaming';
+    traderConf.silent = true;
+    traderConf.persist = true;
+    traderConf.env.backtest = undefined;
+    chai
+      .request(server.listener)
+      .post('/traders')
+      .send(traderConf)
+      .end(async (err: any, res: any) => {
+        res.should.have.status(200);
+        res.body.msg.should.be.a('string');
+        chai.expect(res.body.msg).equal(traderConf.name);
+        // Check if trader created in mongo
+        await sleep(3000);
+        let resp = await chai.request(server.listener).get('/traders');
+        chai.expect(resp.body.length).equal(1);
+        chai.expect(resp.body[0].status).equal('RUNNING');
+        // STOP THE TRADER
+        chai
+          .request(server.listener)
+          .get(`/traders/${traderConf.name}/stop`)
+          .end(async (err, res) => {
+            res.should.have.status(200);
+            done();
+          });
+      });
+  });
+
+  it('Delete a stopped trader test_streaming', done => {
     const traderConfName = 'test_streaming';
     // delete it
     chai
