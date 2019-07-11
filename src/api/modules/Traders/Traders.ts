@@ -23,7 +23,7 @@ export class Traders {
       const traders: TraderModel[] = await TraderModel.find();
       const portfolios: PortfolioModel[] = await PortfolioModel.find();
       return traders.map((t: any) => {
-        const trader: any = t._doc;
+        const trader: any = t.toJSON();
         trader.portfolio = portfolios.find(p => trader.name === p.name);
         return trader;
       });
@@ -44,11 +44,12 @@ export class Traders {
   public static async getTrader(request: Request): Promise<any> {
     try {
       const { name } = request.params;
-      const trader: any = await TraderModel.findOne({ name });
+      let trader: any = await TraderModel.findOne({ name });
       if (!trader) {
         return Boom.notFound(`Trader ${name} not found`);
       }
-      trader._doc.portfolio = await PortfolioModel.findOne({ name });
+      trader = trader.toJSON();
+      trader.portfolio = await PortfolioModel.findOne({ name });
       return trader;
     } catch (error) {
       logger.error(error);
@@ -124,16 +125,15 @@ export class Traders {
       if (running) {
         return Boom.badRequest(`Trader ${name} already running`);
       }
-      const traderMongo = await TraderModel.findOne({ name });
+      let traderMongo = await TraderModel.findOne({ name });
       if (!traderMongo) {
         return Boom.notFound(`Trader ${name} not found`);
       }
-      (<any>traderMongo)._doc.env.backtest = (<any>traderMongo)._doc.env.backtest.start
-        ? (<any>traderMongo)._doc.env.backtest
-        : undefined;
+      traderMongo = traderMongo.toJSON() as TraderModel;
+      traderMongo.env.backtest = traderMongo.env.backtest;
       // Modify config for restarting
       const traderConfig: any = {
-        ...(<any>traderMongo)._doc,
+        ...traderMongo,
         flush: false,
         restart: true,
       };
@@ -146,7 +146,7 @@ export class Traders {
       trader
         .start()
         .then(async () => {
-          if ((await trader.getStatus()) !== Status.STOP) await trader.stop();
+          await trader.stop();
           Traders.removeRunnningTrader(trader);
           logger.info(`[API] trader ${traderConfig.name} finish running`);
         })
@@ -212,6 +212,7 @@ export class Traders {
         await influx.dropSerie(MEASUREMENT_PORTFOLIO, { name });
         await influx.dropSerie(MEASUREMENT_TRADES, { name });
         await TraderModel.deleteOne({ name });
+        await PortfolioModel.deleteOne({ name });
       } else {
         // Delete trader (mongo/influx)
         await running.delete();

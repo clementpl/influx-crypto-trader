@@ -16,6 +16,7 @@ export interface TraderConfig {
   restart?: boolean;
   silent?: boolean;
   flush?: boolean;
+  persist?: boolean;
   saveInputs?: boolean;
   env: EnvConfig;
   strategie: string;
@@ -61,13 +62,14 @@ export class Trader {
   private influx: Influx;
   private symbol: string;
   private exchange: Exchange;
-  private isBacktesting: boolean;
   private shouldStop: boolean = false;
   // Buffer for writing candles data (with indicators) to influxDB
   private bufferInputs: any[] = [];
   private saveInputs: boolean;
   private flushTimeout = 10;
-  private lastBufferFlush: moment.Moment = moment();
+  private lastBufferFlush: number = new Date().getTime();
+  private persist: boolean;
+  private lastPersistTime: number = new Date().getTime();
 
   constructor(public config: TraderConfig) {
     this.symbol = Env.makeSymbol({
@@ -75,9 +77,10 @@ export class Trader {
       exchange: this.config.exchange.name,
       quote: this.config.quote,
     });
-    this.isBacktesting = config.env.backtest ? true : false;
     this.config.flush = this.config.flush === false ? false : true;
     this.saveInputs = this.config.saveInputs ? true : false;
+    this.persist = this.config.persist || true;
+    // this.config.env.backtest ? this.config.persist || false : this.config.persist || true;
   }
 
   /**
@@ -144,7 +147,7 @@ export class Trader {
       this.env.stop();
       await this.portfolio.flush(true);
       await this.flushInputs(true);
-      await this.save();
+      await this.save(true);
       logger.info(`[${this.config.name}] Trader ${this.config.name} stopped`);
     }
   }
@@ -160,7 +163,7 @@ export class Trader {
       // Set trader status and save
       this.shouldStop = false;
       this.status = Status.RUNNING;
-      await this.save();
+      await this.save(true);
       logger.info(
         `[${this.config.name}] Trader ${this.config.name} started on ${this.config.base}/${this.config.quote}`
       );
@@ -216,10 +219,8 @@ export class Trader {
       }
       // Strat finished
       if (this.strategy.afterAll) await this.strategy.afterAll(candleSet as CandleSet, this, this.config.stratOpts);
-      // Flush buffer (write it to influx)
-      await this.portfolio.flush(true);
-      await this.flushInputs(true);
-      await this.save();
+      // Stop trader (will flush buffers influx/mongo)
+      await this.stop();
     } catch (error) {
       await this.stop(Status.ERROR);
       throw error;
@@ -344,19 +345,21 @@ export class Trader {
   /**
    * Save trader in MongoDB
    *
-   * @memberof Watcher
+   * @memberof Trader
    */
-  private async save(): Promise<void> {
+  private async save(force = false): Promise<void> {
     try {
-      if (!this.isBacktesting) {
+      if (this.persist && (force || Math.abs(moment().diff(this.lastPersistTime, 's')) > this.flushTimeout)) {
         const trader = { ...this.config, status: this.status };
         await TraderModel.findOneAndUpdate({ name: this.config.name }, trader, { upsert: true });
-        await this.portfolio.persistMongo();
+        await this.portfolio.persistMongo(true);
       }
     } catch (error) {
       logger.error(error);
       logger.error(new Error(`[${this.config.name}] Error while saving trader ${this.config.name}`));
     }
+    // Reset timeout (even if error)
+    this.lastPersistTime = new Date().getTime();
   }
 
   /**
@@ -383,7 +386,7 @@ export class Trader {
         );
       }
       // Reset timeout (even if error)
-      this.lastBufferFlush = moment();
+      this.lastBufferFlush = new Date().getTime();
     }
   }
 

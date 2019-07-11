@@ -57,6 +57,7 @@ export class Portfolio {
    */
   private flushTimeout = 10;
   private lastFlushTime: number = new Date().getTime();
+  private lastPersistTime: number = new Date().getTime();
   private updateBuffer: any[] = [];
   private buyBuffer: any[] = [];
   private sellBuffer: any[] = [];
@@ -90,12 +91,11 @@ export class Portfolio {
     this.influx = influx;
     if (flush) await this.cleanInflux();
     this.hasInitSeries = false;
-    const portfolio = await PortfolioModel.findOne({ name: this.conf.name });
+    let portfolio = await PortfolioModel.findOne({ name: this.conf.name });
     if (!portfolio) throw Error(`Cannot find portoflio ${this.conf.name}`);
+    portfolio = portfolio.toJSON() as PortfolioModel;
     this.indicators = portfolio.indicators;
-    // BUG: if (portfolio.trade) always true even when portfolio.trade = null (check console.log)
-    // ugly fix...
-    this.trade = portfolio.trade && portfolio.trade.orderBuy ? portfolio.trade : undefined;
+    this.trade = portfolio.trade;
     this.tradeHistory = portfolio.tradeHistory;
     this.indicatorHistory = portfolio.indicatorHistory;
     this.firstCandle = portfolio.firstCandle;
@@ -142,7 +142,7 @@ export class Portfolio {
    * @memberof Portfolio
    */
   public async notifyBuy(order: Order): Promise<void> {
-    // on Buy currentCapital decrease by the cost 
+    // on Buy currentCapital decrease by the cost
     this.indicators.currentCapital -= order.cost + order.fee.cost;
     this.indicators.assetCapital += order.filled;
     this.indicators.fees += order.fee.cost;
@@ -210,9 +210,6 @@ export class Portfolio {
    */
   public update(lastCandle: Candle): void {
     if (!this.firstCandle) this.firstCandle = lastCandle;
-    /*
-      TODO: Update with percentage of %trade win/lost, Hold roi, ...
-    */
     this.lastCandle = lastCandle;
     this.indicators.totalValue = this.indicators.currentCapital + this.indicators.assetCapital * lastCandle.close;
     this.indicators.currentProfit = (this.indicators.totalValue - this.conf.capital) / this.conf.capital;
@@ -228,7 +225,7 @@ export class Portfolio {
     // If first call to Update (init buffer serie)
     if (!this.hasInitSeries) {
       // Copy indicator
-      const indicator = JSON.parse(JSON.stringify(this.indicators));
+      const indicator: PortfolioIndicators = JSON.parse(JSON.stringify(this.indicators));
       this.pushIndicator(indicator);
       this.updateBuffer.push({ values: indicator, time: lastCandle.time });
       this.hasInitSeries = true;
@@ -256,22 +253,24 @@ export class Portfolio {
    *
    * @memberof Portfolio
    */
-  public async persistMongo() {
-    try {
-      if (!this.conf.backtest) {
-        const portfolio = {
-          ...this.conf,
-          indicators: this.indicators,
-          trade: this.trade,
-          indicatorHistory: this.indicatorHistory,
-          tradeHistory: this.tradeHistory,
-          firstCandle: this.firstCandle,
-        };
+  public async persistMongo(force = false) {
+    if (!this.conf.backtest || force || moment().diff(moment(this.lastPersistTime), 's') >= this.flushTimeout) {
+      const portfolio = {
+        ...this.conf,
+        indicators: this.indicators,
+        trade: this.trade,
+        indicatorHistory: this.indicatorHistory,
+        tradeHistory: this.tradeHistory,
+        firstCandle: this.firstCandle,
+      };
+      try {
         await PortfolioModel.findOneAndUpdate({ name: this.conf.name }, portfolio, { upsert: true });
+      } catch (error) {
+        logger.error(error);
+        logger.error(new Error(`[${this.conf.name}] Error while saving portfolio ${this.conf.name}`));
       }
-    } catch (error) {
-      logger.error(error);
-      logger.error(new Error(`[${this.conf.name}] Error while saving portfolio ${this.conf.name}`));
+      // reset persist time (even if error, will try to persist again later)
+      this.lastPersistTime = new Date().getTime();
     }
   }
 
@@ -299,7 +298,6 @@ export class Portfolio {
       } catch (error) {
         logger.error(error);
         logger.error(new Error(`[${this.conf.name}] Problem while saving portfolio state to influx`));
-        // throw new Error('Problem while saving portfolio state to influx');
       }
       // reset flush time (even if error, will try to flush again later)
       this.lastFlushTime = new Date().getTime();
