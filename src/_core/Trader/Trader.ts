@@ -10,6 +10,7 @@ import { Exchange } from './Exchange/Exchange';
 import { Portfolio } from './Portfolio/Portfolio';
 import { TraderModel } from './model';
 import { flatten, requireUncached } from '../helpers';
+import { PortfolioModel } from '@src/_core/Trader/Portfolio/model';
 
 export interface TraderConfig {
   name: string;
@@ -233,8 +234,10 @@ export class Trader {
    * @memberof Trader
    */
   public async delete(): Promise<void> {
+    await this.stop();
     await this.portfolio.cleanInflux();
     await TraderModel.findOneAndDelete({ name: this.config.name });
+    await PortfolioModel.findOneAndDelete({ name: this.config.name });
   }
 
   /**

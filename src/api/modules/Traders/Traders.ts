@@ -92,7 +92,7 @@ export class Traders {
       trader
         .start()
         .then(async () => {
-          if ((await trader.getStatus()) !== Status.STOP) await trader.stop();
+          /*if ((await trader.getStatus()) !== Status.STOP) */ await trader.stop();
           Traders.removeRunnningTrader(trader);
           logger.info(`[API] trader ${traderConfig.name} finish running`);
         })
