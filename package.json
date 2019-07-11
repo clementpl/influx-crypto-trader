@@ -9,6 +9,7 @@
     "pretest": "node_modules/tslint/bin/tslint --project .",
     "test": "NODE_ENV=TEST nyc mocha --timeout 60000 -r ts-node/register -r tsconfig-paths/register -P ./tsconfig.json test/index.ts",
     "start": "ts-node -P ./tsconfig.json -r tsconfig-paths/register ./src/index.ts",
+    "startSized": "ts-node --max_old_space_size=4096 -P ./tsconfig.json -r tsconfig-paths/register ./src/index.ts",
     "build": "tsc;tspath",
     "benchmark": "NODE_ENV=TEST ts-node -P ./tsconfig.json -r tsconfig-paths/register ./benchmark/run.ts"
   },
@@ -74,7 +75,6 @@
     ],
     "exclude": [
       "src/**/*.d.ts"
-    ],
-    "all": true
+    ]
   }
 }
