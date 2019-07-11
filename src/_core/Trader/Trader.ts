@@ -79,8 +79,7 @@ export class Trader {
     });
     this.config.flush = this.config.flush === false ? false : true;
     this.saveInputs = this.config.saveInputs ? true : false;
-    this.persist = this.config.persist || true;
-    // this.config.env.backtest ? this.config.persist || false : this.config.persist || true;
+    this.persist = this.config.persist === false ? false : true;
   }
 
   /**
@@ -348,18 +347,18 @@ export class Trader {
    * @memberof Trader
    */
   private async save(force = false): Promise<void> {
-    try {
-      if (this.persist && (force || Math.abs(moment().diff(this.lastPersistTime, 's')) > this.flushTimeout)) {
+    if (this.persist && (force || Math.abs(moment().diff(this.lastPersistTime, 's')) > this.flushTimeout)) {
+      try {
         const trader = { ...this.config, status: this.status };
         await TraderModel.findOneAndUpdate({ name: this.config.name }, trader, { upsert: true });
         await this.portfolio.persistMongo(true);
+      } catch (error) {
+        logger.error(error);
+        logger.error(new Error(`[${this.config.name}] Error while saving trader ${this.config.name}`));
       }
-    } catch (error) {
-      logger.error(error);
-      logger.error(new Error(`[${this.config.name}] Error while saving trader ${this.config.name}`));
+      // Reset timeout (even if error)
+      this.lastPersistTime = new Date().getTime();
     }
-    // Reset timeout (even if error)
-    this.lastPersistTime = new Date().getTime();
   }
 
   /**

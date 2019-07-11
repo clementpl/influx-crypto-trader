@@ -129,9 +129,13 @@ export class Env {
             }
           } else {
             logger.info(
-              `[STREAMING] No data fetched since ${moment(lastValue.time)
-                .utc()
-                .format()}`
+              `[STREAMING] No data fetched since ${
+                lastValue
+                  ? moment(lastValue.time)
+                      .utc()
+                      .format()
+                  : undefined
+              }`
             );
           }
         }

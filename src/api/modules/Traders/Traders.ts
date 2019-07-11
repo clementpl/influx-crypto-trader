@@ -87,18 +87,14 @@ export class Traders {
       // Create trader worker
       const trader = new TraderWorker(traderConfig);
       // Start thread and init trader (env/portfolio/...)
+      await trader.init().catch(catchError(trader));
+      // Start trader (stop and delete it when finish running (backtest mode))
       trader
-        .init()
-        .then(() => {
-          // Start trader (stop and delete it when finish running (backtest mode))
-          trader
-            .start()
-            .then(async () => {
-              if ((await trader.getStatus()) !== Status.STOP) await trader.stop();
-              Traders.removeRunnningTrader(trader);
-              logger.info(`[API] trader ${traderConfig.name} finish running`);
-            })
-            .catch(catchError(trader));
+        .start()
+        .then(async () => {
+          if ((await trader.getStatus()) !== Status.STOP) await trader.stop();
+          Traders.removeRunnningTrader(trader);
+          logger.info(`[API] trader ${traderConfig.name} finish running`);
         })
         .catch(catchError(trader));
       // Push it to array of running traders
