@@ -359,7 +359,7 @@ export class Optimizer {
               min: Math.min(...fitnesses),
               max: Math.max(...fitnesses),
             },
-            gen: g.map(t => ({ fitness: t.fitnesses, config: t.config.stratOpts })),
+            gen: g.map(t => ({ name: t.config.name, fitness: t.fitnesses, config: t.config.stratOpts })),
           })}`
         );
         gen++;
