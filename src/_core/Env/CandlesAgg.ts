@@ -23,7 +23,11 @@ export class CandlesAgg {
 
   public push(newCandle: Candle) {
     // process candle
-    if (this.buffer.length === 0 || this.convertTime(newCandle.time) % this.amount === 0) {
+    if (
+      this.buffer.length === 0 ||
+      (this.convertTime(newCandle.time) % this.amount === 0 &&
+        this.buffer[this.buffer.length - 1].time !== newCandle.time)
+    ) {
       this.buffer.push(newCandle);
     }
     // Update candle
