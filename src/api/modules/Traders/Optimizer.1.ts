@@ -2,10 +2,11 @@ import { writeFileSync, mkdirSync } from 'fs';
 import { mean } from 'mathjs';
 import PQueue from 'p-queue';
 
-import { logger } from '../../../../src/exports';
-import { Status, Env, EnvConfig, Trader as TraderBase, TraderConfig, CandleSet } from '@src/_core/exports';
+import { logger, TraderWorker as TraderWorkerBase, TraderConfig } from '../../../../src/exports';
+import { deepFind } from '../../../_core/helpers';
+import { Status } from '@src/_core/exports';
 
-class Trader extends TraderBase {
+class TraderWorker extends TraderWorkerBase {
   public fitnesses: Array<{
     currentProfit: number;
     percentTradeWin: number;
@@ -14,7 +15,6 @@ class Trader extends TraderBase {
     [name: string]: number;
   }>;
   public hasRunned: boolean = false;
-  public hasStopped: boolean = false;
 }
 
 interface GeneticOpts {
@@ -41,27 +41,23 @@ function randomBetween(min: number, max: number, integer?: boolean): number {
   return Math.random() * (max - min) + min;
 }
 
-function createTrader(
+function createTraderWorker(
   traderConfig: TraderConfig,
   name: string,
   stratOpts: TraderConfig['stratOpts'],
   silent: boolean = true
 ) {
-  return new Trader(
-    JSON.parse(
-      JSON.stringify({
-        ...traderConfig,
-        stratOpts,
-        name,
-        silent,
-        persist: false,
-        saveInputs: false,
-      })
-    )
+  return new TraderWorker(
+    {
+      ...traderConfig,
+      stratOpts,
+      name,
+    },
+    { silent }
   );
 }
 
-function randomIndiv(traderConfig: TraderConfig, opts: GeneticOpts, gen: number, ind: number): Trader {
+function randomIndiv(traderConfig: TraderConfig, opts: GeneticOpts, gen: number, ind: number): TraderWorker {
   const newOpts = { ...traderConfig.stratOpts };
   opts.genes.forEach(g => {
     if (g.list) {
@@ -70,17 +66,17 @@ function randomIndiv(traderConfig: TraderConfig, opts: GeneticOpts, gen: number,
       newOpts[g.key] = randomBetween(g.min, g.max, g.integer);
     }
   });
-  return createTrader(traderConfig, `${traderConfig.name}-gen${gen}-ind${ind}`, newOpts, opts.silent);
+  return createTraderWorker(traderConfig, `${traderConfig.name}-gen${gen}-ind${ind}`, newOpts, opts.silent);
 }
 
-function tournamentSelection(generation: Trader[], participant: number = 4): Trader[] {
-  const checkSameFitness = (indivs: Trader[], fitness: number) => {
+function tournamentSelection(generation: TraderWorker[], participant: number = 4): TraderWorker[] {
+  const checkSameFitness = (indivs: TraderWorker[], fitness: number) => {
     for (const trader of indivs) {
       if (getFitness(trader) === fitness) return true;
     }
     return false;
   };
-  const traders: Trader[] = [];
+  const traders: TraderWorker[] = [];
   // Select X random participant
   for (let i = 0; i < participant; i++) {
     let trader = generation[randomBetween(0, generation.length - 1, true)];
@@ -94,7 +90,7 @@ function tournamentSelection(generation: Trader[], participant: number = 4): Tra
   return traders.sort((a: any, b: any) => getFitness(b) - getFitness(a)).slice(0, 2);
 }
 
-function getFitness(trader: Trader, key: string = 'total'): number {
+function getFitness(trader: TraderWorker, key: string = 'total'): number {
   let sum = 0;
   for (const fitness of trader.fitnesses) {
     sum += fitness[key];
@@ -110,11 +106,11 @@ function getFitness(trader: Trader, key: string = 'total'): number {
 }
 
 function calcFitness(
-  trader: Trader
+  trader: TraderWorker
 ): { currentProfit: number; percentTradeWin: number; tradeFreqency: number; total: number } {
-  let currentProfit = trader.portfolio.indicators.currentProfit;
+  let currentProfit = deepFind(trader, 'trader.portfolio.indicators.currentProfit');
   currentProfit = currentProfit === undefined || currentProfit === 0 ? -1 : currentProfit;
-  const tradeHistory = trader.portfolio.tradeHistory || [];
+  const tradeHistory = deepFind(trader, 'trader.portfolio.tradeHistory') || [];
   const percentTradeWin =
     tradeHistory.length === 0
       ? 0
@@ -131,7 +127,13 @@ function calcFitness(
   };
 }
 
-function mutate(traderConfig: TraderConfig, trader: Trader, opts: GeneticOpts, gen: number, ind: number): Trader {
+function mutate(
+  traderConfig: TraderConfig,
+  trader: TraderWorker,
+  opts: GeneticOpts,
+  gen: number,
+  ind: number
+): TraderWorker {
   const oldOpts = trader.config.stratOpts;
   const newOpts = { ...oldOpts };
   opts.genes.forEach(g => {
@@ -153,10 +155,10 @@ function mutate(traderConfig: TraderConfig, trader: Trader, opts: GeneticOpts, g
       }
     }
   });
-  return createTrader(traderConfig, `${traderConfig.name}-gen${gen}-ind${ind}`, newOpts, opts.silent);
+  return createTraderWorker(traderConfig, `${traderConfig.name}-gen${gen}-ind${ind}`, newOpts, opts.silent);
 }
 
-function crossover(name: string, traderA: Trader, traderB: Trader, opts: GeneticOpts): Trader {
+function crossover(name: string, traderA: TraderWorker, traderB: TraderWorker, opts: GeneticOpts): TraderWorker {
   // Set gene as traderB
   const newOpts = { ...traderB.config.stratOpts };
   // Take some gene of traderA if mutation prob OK
@@ -175,18 +177,18 @@ function crossover(name: string, traderA: Trader, traderB: Trader, opts: Genetic
       }
     });
   }
-  return createTrader(traderA.config, name, newOpts, opts.silent);
+  return createTraderWorker(traderA.trader.config, name, newOpts, opts.silent);
 }
 
 function breedNewGeneration(
   traderConfig: TraderConfig,
-  generation: Trader[],
+  generation: TraderWorker[],
   opts: GeneticOpts,
   gen: number
-): Trader[] {
+): TraderWorker[] {
   // sort by fitness (but keep only different fitness at the top => try to avoid same indiv convergence)
   generation = generation.sort((a: any, b: any) => getFitness(b) - getFitness(a));
-  const generationResort: Trader[] = [];
+  const generationResort: TraderWorker[] = [];
   let currentIdx = 1;
   // Sort indiv by fitness (take care of keeping only one version of each individu)
   generation.forEach((indiv, idx) => {
@@ -202,15 +204,32 @@ function breedNewGeneration(
   generation = generationResort;
 
   /* CREATE NEW GENERATION */
-  const newGeneration: Trader[] = [];
+  const newGeneration: TraderWorker[] = [];
   // keep best indiv
   const bestIndivs = generation.slice(0, opts.elitism);
-  newGeneration.push(...bestIndivs);
-
+  for (const bestIndiv of bestIndivs) {
+    // just rename best indiv with new name (will not rerun)
+    bestIndiv.config.name = `${traderConfig.name}-gen${gen}-ind${newGeneration.length}`;
+    // keep best unchanged
+    if (newGeneration.length < opts.elitism) {// Math.floor(opts.elitism / 2) + 1) {
+      newGeneration.push(bestIndiv);
+    } else {
+      // Mutate indiv or keep it unmutate
+      const indiv =
+        randomBetween(0, 1) < 0.5 ? mutate(traderConfig, bestIndiv, opts, gen, newGeneration.length) : bestIndiv;
+      newGeneration.push(indiv);
+    }
+  }
   // Mutate or breed new indiv
   while (newGeneration.length < opts.popSize) {
     // Breed indiv using crossover (66%)
     if (randomBetween(0, 1) > 0.33) {
+      // other impl:
+      // let t2 = generation[randomBetween(0, generation.length - 1, true)];
+      /*const t1 =
+        generation[randomBetween(0, Math.floor(gen >= 10 ? generation.length - 1 : generation.length / 2), true)];
+      let t2 = generation[randomBetween(0, Math.floor(generation.length / 2), true)];
+      while (getFitness(t2) === getFitness(t1)) t2 = generation[randomBetween(0, generation.length - 1, true)];*/
       // Get parent1 and 2 randomly (Make sure parent1 and 2 are different)
       const [t1, t2] = tournamentSelection(generation, 4);
       // create children
@@ -225,14 +244,19 @@ function breedNewGeneration(
   return newGeneration;
 }
 
-function makeGeneration(traderConfig: TraderConfig, opts: GeneticOpts, gen: number): Trader[] {
+function makeGeneration(traderConfig: TraderConfig, opts: GeneticOpts, gen: number): TraderWorker[] {
   let ind = 0;
   const generation = [];
   while (ind < opts.popSize) {
     // Add best indiv (no mutation copy of config)
     if (ind === 0) {
       generation.push(
-        createTrader(traderConfig, `${traderConfig.name}-gen${gen}-ind${ind}`, traderConfig.stratOpts, opts.silent)
+        createTraderWorker(
+          traderConfig,
+          `${traderConfig.name}-gen${gen}-ind${ind}`,
+          traderConfig.stratOpts,
+          opts.silent
+        )
       );
     } else {
       generation.push(randomIndiv(traderConfig, opts, gen, ind));
@@ -242,124 +266,76 @@ function makeGeneration(traderConfig: TraderConfig, opts: GeneticOpts, gen: numb
   return generation;
 }
 
-function getEnvConf(generation: Trader[]): EnvConfig {
-  const plugins: EnvConfig['candleSetPlugins'] = [];
-  const envConf: EnvConfig = generation[0].config.env;
-  generation.forEach(t => {
-    const conf = t.config.env;
-    if (conf.candleSetPlugins) {
-      // const pluginsDict = new Map<string, PluginConfig>();
-      conf.candleSetPlugins.forEach(p => {
-        // const integrity = sha256(JSON.stringify(p));
-        // if (!pluginsDict.has(integrity)) pluginsDict.set(integrity, p);
-        plugins.push(p);
-      });
-    }
-  });
-  envConf.candleSetPlugins = plugins;
-  return envConf;
-}
-
 /* tslint:disable */
 export class Optimizer {
-  // public static runningTraders: Trader[] = [];
-  /*public static pqueue: PQueue;
+  public static runningTraders: TraderWorker[] = [];
+  public static pqueue: PQueue;
   public static getQueue(concurrency: number): PQueue {
     if (Optimizer.pqueue) Optimizer.pqueue.clear();
     Optimizer.pqueue = new PQueue({ concurrency, autoStart: true });
     return Optimizer.pqueue;
-  }*/
+  }
 
   public static async genetic(trader: TraderConfig, opts: GeneticOpts) {
     let gen = 0;
     const traderConfig = { ...trader };
-    let generation: Trader[] | undefined;
+    let generation;
     while (gen < opts.generation) {
       try {
         generation = !generation
           ? makeGeneration(traderConfig, opts, gen)
           : breedNewGeneration(traderConfig, generation, opts, gen);
-
-        logger.silent = true;
-        // Init traders and merge env plugins
-        const envConf = JSON.parse(JSON.stringify(trader.env));
-        envConf.aggTimes = [];
-        envConf.candleSetPlugins = [];
-        for (const t of generation) {
-          t.hasStopped = false;
-          t.config.persist = false;
-          t.config.saveInputs = false;
-          await t.init();
-          envConf.aggTimes.push(...t.env.conf.aggTimes);
-          if (t.env.conf.candleSetPlugins) envConf.candleSetPlugins.push(...t.env.conf.candleSetPlugins);
-          // t.env = undefined as any;
-        }
-        // merge aggTimes (uniq)
-        envConf.aggTimes = envConf.aggTimes.filter((elem: string, pos: number, arr: string[]) => {
-          return arr.indexOf(elem) == pos;
+        // Clear promise queue
+        const pqueue = Optimizer.getQueue(opts.threads);
+        pqueue.clear();
+        // Add promise to execute inside queue (start executing it)
+        generation.forEach((t: TraderWorker) => {
+          pqueue
+            .add(
+              // Exec trader task
+              () =>
+                new Promise(async (resolve, reject) => {
+                  try {
+                    // avoid resimulating elite individual
+                    if (t.hasRunned !== true) {
+                      for (let i = 0; i < opts.envs.length; i++) {
+                        t.config.env.backtest = opts.envs[i];
+                        t.config.flush = i === 0 ? true : false;
+                        await t.init(); // flush only first envs
+                        await t.start();
+                        await t.stop();
+                        if (!t.fitnesses) t.fitnesses = [];
+                        t.fitnesses.push(calcFitness(t));
+                      }
+                    }
+                    t.hasRunned = true;
+                    resolve();
+                  } catch (error) {
+                    // set fitness to -1 on error
+                    if (!t.fitnesses) t.fitnesses = [];
+                    t.fitnesses.push({ currentProfit: -1, percentTradeWin: -1, tradeFreqency: -1, total: -1 });
+                    if (t.trader.status !== Status.STOP) await t.stop().catch(error => logger.error(error));
+                    reject(error);
+                  }
+                })
+            )
+            .catch(error => {
+              logger.error(error);
+              // logger.error(new Error(`Problem while running ${t.config.name}`));
+            });
         });
-        const labels = envConf.candleSetPlugins.map((p: any) => p.label);
-        console.log([...new Set(labels)].length);
-        console.log(envConf.candleSetPlugins.length);
-        envConf.candleSetPlugins = envConf.candleSetPlugins.filter(
-          (elem: any, pos: number) => {
-            return labels.indexOf(elem.label) == pos;
-          }
-        );
-        console.log(envConf.candleSetPlugins.length);
-
-        // Merge several envConfig into one unique
-        const env = new Env(envConf); //getEnvConf(generation));
-        await env.init();
-        // console.log(env);
-
-        // TODO Calculate opts integrity of each indiv and push it in history
-
-        // Run the environment
-        const fetcher = env.getGenerator();
-        let data: { done: boolean; value: CandleSet | undefined } = await fetcher.next();
-        let candleSet: CandleSet;
-
-        while (!data.done) {
-          candleSet = data.value as CandleSet;
-          // Step each indiv
-          for (const t of generation) {
-            if (!t.hasStopped && !t.hasRunned) {
-              try {
-                await t.step(candleSet);
-              } catch (e) {
-                logger.silent = false;
-                logger.error(e);
-                // set fitness to -1 on error
-                t.hasStopped = true;
-                if (!t.fitnesses) t.fitnesses = [];
-                t.fitnesses.push({ currentProfit: -1, percentTradeWin: -1, tradeFreqency: -1, total: -1 });
-                if (t.status !== Status.STOP) await t.stop().catch(error => logger.error(error));
-                logger.silent = true;
-              }
-            }
-          }
-          // Fetch next step
-          data = await fetcher.next();
-        }
-
-        // Stop and Calc fitnesses
-        for (const t of generation) {
-          t.hasRunned = true;
-          if (t.status !== Status.STOP) await t.stop().catch(error => logger.error(error));
-          if (!t.fitnesses) t.fitnesses = [];
-          t.fitnesses.push(calcFitness(t));
-        }
+        // Execute traders with batchSize = Optimize.threadsSize
+        // Wait end of runnings trader
+        await pqueue.onIdle();
 
         // LOGGING
-        logger.silent = false;
         // sort by fitness
         const g = generation.sort((a: any, b: any) => getFitness(b) - getFitness(a));
         logger.info('RESULT GEN ' + gen);
         const fitnesses = g.map((t: any) => getFitness(t));
         logger.info(
           g
-            .map((t: Trader) => {
+            .map((t: TraderWorker) => {
               const total = getFitness(t);
               const currentProfit = getFitness(t, 'currentProfit');
               const percentTradeWin = getFitness(t, 'percentTradeWin');
@@ -388,7 +364,6 @@ export class Optimizer {
         );
         gen++;
       } catch (error) {
-        logger.silent = false;
         if (generation) generation.forEach(t => t.stop().catch(error => logger.error(error)));
         logger.error(error);
         throw Error('Problem during genetic optimization');

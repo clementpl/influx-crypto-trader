@@ -125,6 +125,7 @@ export class Trader {
         quote: this.config.quote,
         exchange: this.config.exchange.name,
         backtest: this.config.env.backtest ? true : false,
+        persist: this.config.persist
       });
       if (this.config.restart) await this.portfolio.reload(this.influx, this.config.flush);
       else await this.portfolio.init(this.influx, this.config.flush);
@@ -178,42 +179,8 @@ export class Trader {
           data = await fetcher.next();
           if (!data.done) {
             candleSet = data.value as CandleSet;
-            const lastCandle = candleSet.getLast(this.symbol) as Candle;
-            // Push indicators to bufferInputs (will write it to influx)
-            if (this.saveInputs && Object.keys(lastCandle.indicators || {}).length > 0) {
-              // TODO Write multiple INPUT serie (ETH,BTC, ETH15m, BTC15m, ...)
-              // this.env.watchers.forEach ...
-              this.bufferInputs.push({
-                time: lastCandle.time,
-                values: flatten(lastCandle.indicators),
-              });
-            }
-            // Update portfolio with new candle
-            this.portfolio.update(lastCandle);
-
-            // Before strat callback
-            if (this.strategy.before) await this.strategy.before(candleSet, this, this.config.stratOpts);
-            // Run strategy
-            const advice = await this.strategy.run(candleSet, this, this.config.stratOpts);
-            // Check if advice is correct (cant buy more than one order at a time)
-            const error = this.checkAdvice(advice);
-            // Process advice (if error => wait)
-            if (!error) {
-              if (advice === 'buy') {
-                await this.buy(lastCandle);
-              } else if (advice === 'sell') {
-                await this.sell(lastCandle);
-              }
-            } else {
-              // WAIT
-              logger.info(error);
-            }
-            // After strat callback
-            if (this.strategy.after) await this.strategy.after(candleSet, this, this.config.stratOpts);
-
-            // Persist inputs/portfolio to influx
-            await this.flushInputs();
-            await this.portfolio.save();
+            // Step the trader (makeStrategy/updatePortfolio/...)
+            await this.step(candleSet);
           }
         }
       }
@@ -223,6 +190,55 @@ export class Trader {
       await this.stop();
     } catch (error) {
       await this.stop(Status.ERROR);
+      throw error;
+    }
+  }
+
+  /**
+   * Make a new step with the given candleSet
+   *
+   * @param {CandleSet} candleSet
+   * @memberof Trader
+   */
+  public async step(candleSet: CandleSet) {
+    try {
+      const lastCandle = candleSet.getLast(this.symbol) as Candle;
+      // Push indicators to bufferInputs (will write it to influx)
+      if (this.saveInputs && Object.keys(lastCandle.indicators || {}).length > 0) {
+        // TODO Write multiple INPUT serie (ETH,BTC, ETH15m, BTC15m, ...)
+        // this.env.watchers.forEach ...
+        this.bufferInputs.push({
+          time: lastCandle.time,
+          values: flatten(lastCandle.indicators),
+        });
+      }
+      // Update portfolio with new candle
+      this.portfolio.update(lastCandle);
+
+      // Before strat callback
+      if (this.strategy.before) await this.strategy.before(candleSet, this, this.config.stratOpts);
+      // Run strategy
+      const advice = await this.strategy.run(candleSet, this, this.config.stratOpts);
+      // Check if advice is correct (cant buy more than one order at a time)
+      const error = this.checkAdvice(advice);
+      // Process advice (if error => wait)
+      if (!error) {
+        if (advice === 'buy') {
+          await this.buy(lastCandle);
+        } else if (advice === 'sell') {
+          await this.sell(lastCandle);
+        }
+      } else {
+        // WAIT
+        logger.info(error);
+      }
+      // After strat callback
+      if (this.strategy.after) await this.strategy.after(candleSet, this, this.config.stratOpts);
+
+      // Persist inputs/portfolio to influx
+      await this.flushInputs();
+      await this.portfolio.save();
+    } catch (error) {
       throw error;
     }
   }

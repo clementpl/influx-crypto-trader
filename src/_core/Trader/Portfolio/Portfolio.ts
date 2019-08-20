@@ -13,6 +13,7 @@ export interface PortfolioConfig {
   quote: string;
   exchange: string;
   backtest: boolean;
+  persist?: boolean;
 }
 
 export interface PortfolioIndicators {
@@ -254,23 +255,25 @@ export class Portfolio {
    * @memberof Portfolio
    */
   public async persistMongo(force = false) {
-    if (!this.conf.backtest || force || moment().diff(moment(this.lastPersistTime), 's') >= this.flushTimeout) {
-      const portfolio = {
-        ...this.conf,
-        indicators: this.indicators,
-        trade: this.trade,
-        indicatorHistory: this.indicatorHistory,
-        tradeHistory: this.tradeHistory,
-        firstCandle: this.firstCandle,
-      };
-      try {
-        await PortfolioModel.findOneAndUpdate({ name: this.conf.name }, portfolio, { upsert: true });
-      } catch (error) {
-        logger.error(error);
-        logger.error(new Error(`[${this.conf.name}] Error while saving portfolio ${this.conf.name}`));
+    if (this.conf.persist) {
+      if (!this.conf.backtest || force || moment().diff(moment(this.lastPersistTime), 's') >= this.flushTimeout) {
+        const portfolio = {
+          ...this.conf,
+          indicators: this.indicators,
+          trade: this.trade,
+          indicatorHistory: this.indicatorHistory,
+          tradeHistory: this.tradeHistory,
+          firstCandle: this.firstCandle,
+        };
+        try {
+          await PortfolioModel.findOneAndUpdate({ name: this.conf.name }, portfolio, { upsert: true });
+        } catch (error) {
+          logger.error(error);
+          logger.error(new Error(`[${this.conf.name}] Error while saving portfolio ${this.conf.name}`));
+        }
+        // reset persist time (even if error, will try to persist again later)
+        this.lastPersistTime = new Date().getTime();
       }
-      // reset persist time (even if error, will try to persist again later)
-      this.lastPersistTime = new Date().getTime();
     }
   }
 
