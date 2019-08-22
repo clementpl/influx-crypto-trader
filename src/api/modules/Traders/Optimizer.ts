@@ -301,11 +301,9 @@ export class Optimizer {
         });
         // merge plugins (uniq) label need to bee the hash of opts => p.label = sha256(JSON.stringify(p.opts))
         const labels = envConf.candleSetPlugins.map((p: any) => p.label);
-        envConf.candleSetPlugins = envConf.candleSetPlugins.filter(
-          (elem: any, pos: number) => {
-            return labels.indexOf(elem.label) == pos;
-          }
-        );
+        envConf.candleSetPlugins = envConf.candleSetPlugins.filter((elem: any, pos: number) => {
+          return labels.indexOf(elem.label) == pos;
+        });
 
         // Init env
         const env = new Env(envConf); //getEnvConf(generation));
@@ -317,7 +315,15 @@ export class Optimizer {
         let data: { done: boolean; value: CandleSet | undefined } = await fetcher.next();
         let candleSet: CandleSet;
 
+        let lll = 0;
         while (!data.done) {
+          if (lll++ % 10000 === 0) {
+            const mem = process.memoryUsage();
+            // if (mem.heapUsed / mem.heapTotal > 0.95) {
+            console.log(mem);
+            lll = 1
+            //}
+          }
           candleSet = data.value as CandleSet;
           // Step each indiv
           for (const t of generation) {

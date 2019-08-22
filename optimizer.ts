@@ -40,7 +40,7 @@ Optimizer.genetic(
         },
       ],
       aggTimes: [],
-      warmup: 50000,
+      warmup: 30000,
       batchSize: 10000,
       bufferSize: 500,
       backtest: {
