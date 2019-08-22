@@ -315,15 +315,15 @@ export class Optimizer {
         let data: { done: boolean; value: CandleSet | undefined } = await fetcher.next();
         let candleSet: CandleSet;
 
-        let lll = 0;
+        //let lll = 0;
         while (!data.done) {
-          if (lll++ % 10000 === 0) {
+          /*if (lll++ % 10000 === 0) {
             const mem = process.memoryUsage();
             // if (mem.heapUsed / mem.heapTotal > 0.95) {
             console.log(mem);
             lll = 1
             //}
-          }
+          }*/
           candleSet = data.value as CandleSet;
           // Step each indiv
           for (const t of generation) {
