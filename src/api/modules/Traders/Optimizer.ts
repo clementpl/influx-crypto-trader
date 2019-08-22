@@ -294,26 +294,23 @@ export class Optimizer {
           if (t.env.conf.candleSetPlugins) envConf.candleSetPlugins.push(...t.env.conf.candleSetPlugins);
           // t.env = undefined as any;
         }
+        // Merge several envConfig into one unique
         // merge aggTimes (uniq)
         envConf.aggTimes = envConf.aggTimes.filter((elem: string, pos: number, arr: string[]) => {
           return arr.indexOf(elem) == pos;
         });
+        // merge plugins (uniq) label need to bee the hash of opts => p.label = sha256(JSON.stringify(p.opts))
         const labels = envConf.candleSetPlugins.map((p: any) => p.label);
-        console.log([...new Set(labels)].length);
-        console.log(envConf.candleSetPlugins.length);
         envConf.candleSetPlugins = envConf.candleSetPlugins.filter(
           (elem: any, pos: number) => {
             return labels.indexOf(elem.label) == pos;
           }
         );
-        console.log(envConf.candleSetPlugins.length);
 
-        // Merge several envConfig into one unique
+        // Init env
         const env = new Env(envConf); //getEnvConf(generation));
         await env.init();
         // console.log(env);
-
-        // TODO Calculate opts integrity of each indiv and push it in history
 
         // Run the environment
         const fetcher = env.getGenerator();

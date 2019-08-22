@@ -54,7 +54,7 @@ Optimizer.genetic(
     threads: 6,
     silent: false,
     generation: 200,
-    popSize: 40,
+    popSize: 10,
     elitism: 4,
     mutationRate: 0.5,
     envs: [
