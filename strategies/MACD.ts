@@ -1,5 +1,6 @@
 import { CandleSet } from '@src/_core/Env/CandleSet';
 import { Trader, Candle, EnvConfig } from '@src/exports';
+import { replacePlugins } from './utils';
 
 // Create config:
 //  - Set default conf
@@ -25,10 +26,9 @@ function makeConfig(env: EnvConfig, stratOpts: any) {
         slowPeriod: opts.slowPeriod,
         signalPeriod: opts.signalPeriod,
       },
-    }
+    },
   ];
-  if (!env.candleSetPlugins) env.candleSetPlugins = [];
-  plugins.forEach(p => (<any[]>env.candleSetPlugins).push(p));
+  replacePlugins(env, plugins);
 }
 // export strategy
 export default {
@@ -46,13 +46,9 @@ export default {
     }
     const lastCandle = candleSet.getLast(this.symbol) as Candle;
     let MACDAdvice = '';
-    if (
-      lastCandle.indicators!['macd-MACD'] > lastCandle.indicators!['macd-signal']
-    ) {
+    if (lastCandle.indicators!['macd-MACD'] > lastCandle.indicators!['macd-signal']) {
       MACDAdvice = 'buy';
-    } else if (
-      lastCandle.indicators!['macd-MACD'] < lastCandle.indicators!['macd-signal']
-    ) {
+    } else if (lastCandle.indicators!['macd-MACD'] < lastCandle.indicators!['macd-signal']) {
       MACDAdvice = 'sell';
     }
 

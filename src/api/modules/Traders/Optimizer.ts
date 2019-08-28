@@ -47,7 +47,9 @@ function createTraderWorker(
   stratOpts: TraderConfig['stratOpts'],
   silent: boolean = true
 ) {
-  return new TraderWorker(
+  traderConfig.env.aggTimes = [];
+  traderConfig.env.candleSetPlugins = [];
+  const trader = new TraderWorker(
     {
       ...traderConfig,
       stratOpts,
@@ -55,6 +57,8 @@ function createTraderWorker(
     },
     { silent }
   );
+  trader.hasRunned = false;
+  return trader;
 }
 
 function randomIndiv(traderConfig: TraderConfig, opts: GeneticOpts, gen: number, ind: number): TraderWorker {
@@ -208,28 +212,25 @@ function breedNewGeneration(
   // keep best indiv
   const bestIndivs = generation.slice(0, opts.elitism);
   for (const bestIndiv of bestIndivs) {
+    newGeneration.push(bestIndiv);
     // just rename best indiv with new name (will not rerun)
-    bestIndiv.config.name = `${traderConfig.name}-gen${gen}-ind${newGeneration.length}`;
     // keep best unchanged
-    if (newGeneration.length < opts.elitism) {// Math.floor(opts.elitism / 2) + 1) {
+    /*if (newGeneration.length < opts.elitism) {
       newGeneration.push(bestIndiv);
     } else {
       // Mutate indiv or keep it unmutate
-      const indiv =
-        randomBetween(0, 1) < 0.5 ? mutate(traderConfig, bestIndiv, opts, gen, newGeneration.length) : bestIndiv;
-      newGeneration.push(indiv);
-    }
+      if (randomBetween(0, 1) < 0.5) {
+        newGeneration.push(bestIndiv);
+      } else {
+        bestIndiv.config.name = `${traderConfig.name}-gen${gen}-ind${newGeneration.length}`;
+        newGeneration.push(mutate(traderConfig, bestIndiv, opts, gen, newGeneration.length));
+      }
+    }*/
   }
   // Mutate or breed new indiv
   while (newGeneration.length < opts.popSize) {
     // Breed indiv using crossover (66%)
     if (randomBetween(0, 1) > 0.33) {
-      // other impl:
-      // let t2 = generation[randomBetween(0, generation.length - 1, true)];
-      /*const t1 =
-        generation[randomBetween(0, Math.floor(gen >= 10 ? generation.length - 1 : generation.length / 2), true)];
-      let t2 = generation[randomBetween(0, Math.floor(generation.length / 2), true)];
-      while (getFitness(t2) === getFitness(t1)) t2 = generation[randomBetween(0, generation.length - 1, true)];*/
       // Get parent1 and 2 randomly (Make sure parent1 and 2 are different)
       const [t1, t2] = tournamentSelection(generation, 4);
       // create children
@@ -352,15 +353,19 @@ export class Optimizer {
         // Flush config of the generation
         mkdirSync(`optimizer/genetic/${traderConfig.name}`, { recursive: true });
         writeFileSync(
-          `optimizer/genetic/${traderConfig.name}/gen${gen}`,
-          `${JSON.stringify({
-            result: {
-              mean: mean(...fitnesses),
-              min: Math.min(...fitnesses),
-              max: Math.max(...fitnesses),
+          `optimizer/genetic/${traderConfig.name}/gen${gen}.json`,
+          `${JSON.stringify(
+            {
+              result: {
+                mean: mean(...fitnesses),
+                min: Math.min(...fitnesses),
+                max: Math.max(...fitnesses),
+              },
+              gen: g.map(t => ({ name: t.config.name, fitness: t.fitnesses, config: t.config.stratOpts })),
             },
-            gen: g.map(t => ({ name: t.config.name, fitness: t.fitnesses, config: t.config.stratOpts })),
-          })}`
+            null,
+            2
+          )}`
         );
         gen++;
       } catch (error) {
