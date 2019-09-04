@@ -47,39 +47,5 @@ const macd: CandleIndicator = (label: string, opts: MACDConfig) => {
     return mergeLabel(values[values.length - 1], label);
   };
 };
-/*
-73
-74
-{
-  MACD: 85.00645614034693,
-  signal: 106.52193684210249,
-  histogram: -21.515480701755564
-}
-scope
-73
-74
-{
-  MACD: -625.444666666659,
-  signal: -879.980203508767,
-  histogram: 254.53553684210794
-}
-*/
 
-/*
-73
-74
-{
-  MACD: 35.02272280701436,
-  signal: 68.23829342105125,
-  histogram: -33.21557061403689
-}
-scope
-73
-74
-{
-  MACD: 778.1097052631558,
-  signal: 855.8901043859648,
-  histogram: -77.78039912280906
-}
-*/
 export default macd;

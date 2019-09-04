@@ -118,13 +118,13 @@ export class Env {
             limit: batchSize,
             since: since.utc().format(),
           });
-          const lastValue = this.candleSet.getLast(Env.makeSymbol(tags)) as Candle;
+          const { indicators, ...lastValue } = this.candleSet.getLast(Env.makeSymbol(tags)) as Candle;
           // Update data (if data fetched)
           if (ret && ret.length > 0) {
-            await this.candleSet.push(ret, Env.makeSymbol(tags));
-            const newValue = this.candleSet.getLast(Env.makeSymbol(tags));
+            const newValue = ret[ret.length - 1];
             // Check if new value inserted
             if (JSON.stringify(newValue) !== JSON.stringify(lastValue)) {
+              await this.candleSet.push(ret, Env.makeSymbol(tags));
               hasUpdate = true;
             }
           } else {

@@ -1,7 +1,7 @@
 {
   "log": {
-    "logPath": "./log/{time}-dev-crypto-trader.log",
-    "errorPath": "./log/{time}-dev-crypto-trader-error.log"
+    "logPath": "./log/dev-crypto-trader.log",
+    "errorPath": "./log/dev-crypto-trader-error.log"
   },
   "influx": {
     "host": "localhost",

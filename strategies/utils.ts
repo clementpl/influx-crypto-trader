@@ -58,6 +58,23 @@ export function splitBacktestEnv(env: EnvConfig, split: number) {
   return [trainEnv, testEnv];
 }
 
+export function replacePlugins(env: EnvConfig, newPlugins: EnvConfig['candleSetPlugins']) {
+  if (!newPlugins) newPlugins = [];
+  if (!env.candleSetPlugins) {
+    env.candleSetPlugins = newPlugins;
+    return;
+  }
+  const labels = env.candleSetPlugins.map(p => p.label);
+  newPlugins.forEach(p => {
+    const idx = labels.indexOf(p.label);
+    if (idx === -1) {
+      env.candleSetPlugins!.push(p);
+    } else {
+      env.candleSetPlugins!.splice(idx, 1, p);
+    }
+  });
+}
+
 // helpers select random date range between 2 dates
 /*export function selectRandomEnv(begin: string, end: string, length: number) {
   // Generate random start date
