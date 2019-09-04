@@ -43,7 +43,7 @@ export class CandlesAgg {
     }
     // Remove
     if (this.buffer.length > this.bufferSize) {
-      this.buffer.splice(0, 100);
+      this.buffer.splice(0, this.buffer.length - this.bufferSize);
     }
   }
 
