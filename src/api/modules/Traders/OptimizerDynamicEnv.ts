@@ -211,7 +211,13 @@ function breedNewGeneration(
   // keep best indiv
   const bestIndivs = generation.slice(0, opts.elitism);
   // change generation number
-  bestIndivs.forEach(indiv => (indiv.config.name = indiv.config.name + `-gen${gen}`));
+  bestIndivs.forEach(indiv => {
+    if (indiv.config.name.match(/-gen[0-9]+$/)) {
+      indiv.config.name = indiv.config.name.replace(/-gen[0-9]+$/, `-gen${gen}`);
+    } else {
+      indiv.config.name = indiv.config.name + `-gen${gen}`;
+    }
+  });
   newGeneration.push(...bestIndivs);
 
   // Mutate or breed new indiv
@@ -294,7 +300,6 @@ export class Optimizer {
             .add(randomBetween(30, 60, true), 'd')
             .toISOString(),
         });
-        console.log(opts.envs);
 
         // Add promise to execute inside queue (start executing it)
         generation.forEach((t: TraderWorker) => {
