@@ -4,6 +4,7 @@ import * as Boom from 'boom';
 import { logger, TraderConfig, TraderWorker, Status, TraderModel } from '../../../../src/exports';
 import { success } from '../../helpers';
 import { Optimizer } from './Optimizer';
+import { Optimizer as OptimizerDynamicEnv } from './OptimizerDynamicEnv';
 import { MEASUREMENT_PORTFOLIO, MEASUREMENT_TRADES, Influx } from '@src/_core/exports';
 import { config } from '@config/config';
 import { PortfolioModel } from '@src/_core/Trader/Portfolio/model';
@@ -231,8 +232,12 @@ export class Traders {
    */
   public static async optimizeTrader(request: Request): Promise<any> {
     try {
-      const { trader, opts } = <any>request.payload;
-      Optimizer.genetic(trader, opts).catch(error => logger.error(error));
+      const { type, trader, opts } = <any>request.payload;
+      if (type && type === 'dynamic') {
+        OptimizerDynamicEnv.genetic(trader, opts).catch(error => logger.error(error));
+      } else {
+        Optimizer.genetic(trader, opts).catch(error => logger.error(error));
+      }
       logger.info(`[API] Genetic optimizer for ${trader.name} launch`);
       return success();
     } catch (error) {

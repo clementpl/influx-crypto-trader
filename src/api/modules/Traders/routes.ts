@@ -41,6 +41,7 @@ export const routes: any[] = [
     options: {
       validate: {
         payload: {
+          type: Joi.string().optional(),
           opts: Joi.object(),
           trader: traderPayload,
         },
