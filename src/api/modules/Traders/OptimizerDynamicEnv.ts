@@ -102,10 +102,7 @@ function getFitness(trader: TraderWorker, key: string = 'total'): number {
   }
   const score = sum / trader.fitnesses.length;
   const lifetime = trader.fitnesses.length > 10 ? 10 : trader.fitnesses.length;
-  // malus for WAIT strategy
-  let malus = 0;
-  if (score === 0 && lifetime > 1) malus = 1;
-  return score - malus + lifetime / 10;
+  return score + lifetime / 10 / 2;
 }
 
 function calcFitness(
@@ -303,7 +300,7 @@ export class Optimizer {
 
         // Add promise to execute inside queue (start executing it)
         generation.forEach((t: TraderWorker) => {
-          t.fitnesses = [];
+          if (!t.fitnesses) t.fitnesses = [];
           pqueue
             .add(
               // Exec trader task
@@ -317,6 +314,8 @@ export class Optimizer {
                       await t.start();
                       await t.stop();
                       t.fitnesses.push(calcFitness(t));
+                      // Max 10 last fitnesses recorded
+                      if (t.fitnesses.length > 10) t.fitnesses.shift();
                     }
                     resolve();
                   } catch (error) {
