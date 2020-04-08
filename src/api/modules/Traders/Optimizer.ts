@@ -2,18 +2,21 @@ import { writeFileSync, mkdirSync } from 'fs';
 import { mean } from 'mathjs';
 import PQueue from 'p-queue';
 
-import { logger, TraderWorker as TraderWorkerBase, TraderConfig } from '../../../../src/exports';
+import { logger, TraderWorker as TraderWorkerBase, TraderConfig } from '../../../exports';
 import { deepFind } from '../../../_core/helpers';
-import { Status } from '@src/_core/exports';
+import { Status, PortfolioTrade } from '@src/_core/exports';
+
+interface Fitness {
+  currentProfit: number;
+  percentTradeWin: number;
+  sharpeRatio: number;
+  tradeFrequency: number;
+  total: number;
+  [name: string]: number;
+}
 
 class TraderWorker extends TraderWorkerBase {
-  public fitnesses: Array<{
-    currentProfit: number;
-    percentTradeWin: number;
-    tradeFreqency: number;
-    total: number;
-    [name: string]: number;
-  }>;
+  public fitnesses: Fitness[];
   public hasRunned: boolean = false;
 }
 
@@ -92,6 +95,33 @@ function tournamentSelection(generation: TraderWorker[], participant: number = 4
   }
   // return 2 best traders from tournament
   return traders.sort((a: any, b: any) => getFitness(b) - getFitness(a)).slice(0, 2);
+  // multi objective selection
+  /* TODO: Test multi objective
+  traders.forEach((t1: any, idx1: number) => {
+    t1.rank = 0;
+    traders.forEach((t2, idx2) => {
+      if (idx1 !== idx2) {
+        const t1Fit = [
+          getFitness(t1, 'currentProfit'),
+          getFitness(t1, 'percentTradeWin'),
+          getFitness(t1, 'sharpeRatio'),
+        ];
+        const t2Fit = [
+          getFitness(t2, 'currentProfit'),
+          getFitness(t2, 'percentTradeWin'),
+          getFitness(t2, 'sharpeRatio'),
+        ];
+        let t1Dominance = 0;
+        let t2Dominance = 0;
+        for (let i = 0; i < t1Fit.length; i++) {
+          if (t1Fit[i] > t2Fit[i]) t1Dominance++;
+          if (t1Fit[i] < t2Fit[i]) t2Dominance++;
+        }
+        if (t1Dominance > t2Dominance) t1.rank++;
+      }
+    });
+  });
+  return traders.sort((a: any, b: any) => b.rank - a.rank).slice(0, 2);*/
 }
 
 function getFitness(trader: TraderWorker, key: string = 'total'): number {
@@ -101,33 +131,47 @@ function getFitness(trader: TraderWorker, key: string = 'total'): number {
   }
   const score = sum / trader.fitnesses.length;
   // Add 0.5 bonus points to total
-  let bonus = 0;
-  if (key === 'total') {
+  // let bonus = 0;
+  /*if (key === 'total') {
     if (trader.fitnesses.filter(f => f.currentProfit > 0.05).length === trader.fitnesses.length) bonus += 0.25;
     if (trader.fitnesses.filter(f => f.percentTradeWin > 0.6).length === trader.fitnesses.length) bonus += 0.25;
-  }
-  return score + bonus;
+  }*/
+  return score; // + bonus;
 }
 
-function calcFitness(
-  trader: TraderWorker
-): { currentProfit: number; percentTradeWin: number; tradeFreqency: number; total: number } {
+function calcSharpeRatio(tradeHistory: PortfolioTrade[]) {
+  const sumT = tradeHistory.reduce((sum, t) => (sum += t.orderProfit), 0);
+  const meanT = sumT / tradeHistory.length;
+  const squaredMeanDiff = tradeHistory.reduce(
+    (sum, t) => (sum += (t.orderProfit - meanT) * (t.orderProfit - meanT)),
+    0
+  );
+  const stdDev = Math.sqrt(squaredMeanDiff / tradeHistory.length);
+  const sharpeRatio = (meanT - 0.005) / stdDev;
+  return sharpeRatio;
+}
+
+function calcFitness(trader: TraderWorker): Fitness {
+  // Current Profit
   let currentProfit = deepFind(trader, 'trader.portfolio.indicators.currentProfit');
   currentProfit = currentProfit === undefined || currentProfit === 0 ? -1 : currentProfit;
-  const tradeHistory = deepFind(trader, 'trader.portfolio.tradeHistory') || [];
+  // Percent Trade Win
+  const tradeHistory: PortfolioTrade[] = deepFind(trader, 'trader.portfolio.tradeHistory') || [];
   const percentTradeWin =
-    tradeHistory.length === 0
-      ? 0
-      : tradeHistory.filter((trade: any) => trade.orderProfit > 0.001).length / tradeHistory.length;
+    tradeHistory.length > 0 ? tradeHistory.filter(trade => trade.orderProfit > 0.002).length / tradeHistory.length : 0;
+  // Sharpe ratio
+  let sharpeRatio = tradeHistory.length > 1 ? calcSharpeRatio(tradeHistory) : 0;
+  sharpeRatio = sharpeRatio < 0 ? 0 : sharpeRatio > 4 ? 4 : sharpeRatio;
+  // Trade Frequency (score=1 if more than 1 trade every 2 weeks)
   const { start, stop } = trader.config.env.backtest!;
-  const limit = Math.floor(daysBetween(new Date(start), new Date(stop)) / 3);
-  let tradeFreqency = tradeHistory.length / limit === 0 ? 1 : limit;
-  tradeFreqency = tradeFreqency > 1 ? 1 : tradeFreqency;
+  const limit = Math.floor(daysBetween(new Date(start), new Date(stop)) / 14);
+  const tradeFrequency = tradeHistory.length > limit ? 1 : tradeHistory.length / limit;
   return {
     currentProfit,
     percentTradeWin,
-    tradeFreqency,
-    total: currentProfit + percentTradeWin /* + tradeFreqency*/,
+    sharpeRatio,
+    tradeFrequency,
+    total: currentProfit + 0.5 * percentTradeWin + 0.5 * tradeFrequency + sharpeRatio / 4,
   };
 }
 
@@ -211,35 +255,25 @@ function breedNewGeneration(
   const newGeneration: TraderWorker[] = [];
   // keep best indiv
   const bestIndivs = generation.slice(0, opts.elitism);
-  for (const bestIndiv of bestIndivs) {
-    newGeneration.push(bestIndiv);
-    // just rename best indiv with new name (will not rerun)
-    // keep best unchanged
-    /*if (newGeneration.length < opts.elitism) {
-      newGeneration.push(bestIndiv);
-    } else {
-      // Mutate indiv or keep it unmutate
-      if (randomBetween(0, 1) < 0.5) {
-        newGeneration.push(bestIndiv);
-      } else {
-        bestIndiv.config.name = `${traderConfig.name}-gen${gen}-ind${newGeneration.length}`;
-        newGeneration.push(mutate(traderConfig, bestIndiv, opts, gen, newGeneration.length));
-      }
-    }*/
-  }
+  newGeneration.push(...bestIndivs);
   // Mutate or breed new indiv
   while (newGeneration.length < opts.popSize) {
-    // Breed indiv using crossover (66%)
-    if (randomBetween(0, 1) > 0.33) {
+    const rand = randomBetween(0, 1);
+    // Breed indiv using crossover (60%)
+    if (rand < 0.6) {
       // Get parent1 and 2 randomly (Make sure parent1 and 2 are different)
       const [t1, t2] = tournamentSelection(generation, 4);
       // create children
       newGeneration.push(crossover(`${traderConfig.name}-gen${gen}-ind${newGeneration.length}`, t1, t2, opts));
     }
-    // Breed indiv using mutation (33%)
-    else {
+    // Breed indiv using mutation (30%)
+    else if (rand < 0.9) {
       const t = generation[randomBetween(0, generation.length - 1, true)];
       newGeneration.push(mutate(traderConfig, t, opts, gen, newGeneration.length));
+    }
+    // New random indiv (10%)
+    else {
+      newGeneration.push(randomIndiv(traderConfig, opts, gen, newGeneration.length));
     }
   }
   return newGeneration;
@@ -314,7 +348,13 @@ export class Optimizer {
                   } catch (error) {
                     // set fitness to -1 on error
                     if (!t.fitnesses) t.fitnesses = [];
-                    t.fitnesses.push({ currentProfit: -1, percentTradeWin: -1, tradeFreqency: -1, total: -1 });
+                    t.fitnesses.push({
+                      currentProfit: -1,
+                      percentTradeWin: -1,
+                      sharpeRatio: -1,
+                      tradeFrequency: -1,
+                      total: -1,
+                    });
                     if (t.trader.status !== Status.STOP) await t.stop().catch(error => logger.error(error));
                     reject(error);
                   }
@@ -340,10 +380,11 @@ export class Optimizer {
               const total = getFitness(t);
               const currentProfit = getFitness(t, 'currentProfit');
               const percentTradeWin = getFitness(t, 'percentTradeWin');
-              const tradeFreqency = getFitness(t, 'tradeFreqency');
+              const sharpeRatio = getFitness(t, 'sharpeRatio');
+              const tradeFrequency = getFitness(t, 'tradeFrequency');
               return `[${
                 t.config.name
-              }] total: ${total}, currentProfit: ${currentProfit}, percentTradeWin: ${percentTradeWin}, tradeFreqency: ${tradeFreqency} `;
+              }] total: ${total}, currentProfit: ${currentProfit}, percentTradeWin: ${percentTradeWin}, sharpeRatio: ${sharpeRatio}, tradeFrequency: ${tradeFrequency}`;
             })
             .join('\n')
         );
