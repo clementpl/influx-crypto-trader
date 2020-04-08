@@ -2,6 +2,7 @@ import { OHLCV } from '@core/Influx/Influx';
 import { requireUncached } from '@core/helpers';
 import { Candle } from './Candle';
 import { CandlesAgg } from './CandlesAgg';
+import PQueue from 'p-queue';
 
 export interface CandleSetConfig {
   bufferSize: number;
@@ -21,6 +22,7 @@ export type CandleSetPlugin = (candles: Candle[], newCandle: Candle) => Promise<
 export class CandleSet {
   public marketCandles: Map<string, Candle[] | CandlesAgg> = new Map();
   private plugins: Array<{ opts: any; compute: CandleSetPlugin }> = []; // indicators plugins
+  private queue: PQueue = new PQueue({ concurrency: 100, autoStart: true });
 
   /**
    * Creates an instance of CandleSet.
@@ -172,28 +174,50 @@ export class CandleSet {
       indicators: {},
     };
 
-    // Execute plugins
+    this.queue.clear();
+    // Execute plugins (indicators)
+    // console.time('calcInd');
+    const indicators: any = {};
     for (const { opts, compute } of this.plugins) {
-      // Aggregated timeframe
-      if (opts.aggTime) {
-        const candles = this.getMarketCandles(`${symbol}:${opts.aggTime}`) as Candle[];
-        newCandle.indicators = {
-          ...newCandle.indicators,
-          ...(await compute(candles, candles[candles.length - 1])),
-        };
-      }
-      // 1m timeframe
-      else {
-        // slice() + push() is faster than .concat()
-        const candles = candlesSymbol.slice();
-        candles.push(newCandle);
-        newCandle.indicators = {
-          ...newCandle.indicators,
-          ...(await compute(candles, newCandle)),
-        };
-      }
+      this.queue.add(
+        () =>
+          new Promise(async (resolve, reject) => {
+            // Aggregated timeframe
+            if (opts.aggTime) {
+              const candles = this.getMarketCandles(`${symbol}:${opts.aggTime}`) as Candle[];
+              const newInds = await compute(candles, candles[candles.length - 1]);
+              Object.keys(newInds).forEach(k => (indicators[k] = newInds[k]));
+              /*newCandle.indicators = {
+                ...newCandle.indicators,
+                ...(await compute(candles, candles[candles.length - 1])),
+              };*/
+            }
+            // 1m timeframe
+            else {
+              // slice() + push() is faster than .concat()
+              const candles = candlesSymbol.slice();
+              candles.push(newCandle);
+              /*newCandle.indicators = {
+                ...newCandle.indicators,
+                ...(await compute(candles, newCandle)),
+              };*/
+              const newInds = await compute(candles, newCandle);
+              Object.keys(newInds).forEach(k => (indicators[k] = newInds[k]));
+            }
+            /*console.log('BEFORE');
+            console.log(opts);
+            console.log(newInds);*/
+            resolve();
+          })
+      );
     }
-
+    await this.queue.onIdle();
+    this.queue.clear();
+    newCandle.indicators = {
+      ...newCandle.indicators,
+      ...indicators,
+    };
+    // console.timeEnd('calcInd');
     return newCandle;
   }
 }
