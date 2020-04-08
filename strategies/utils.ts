@@ -1,7 +1,7 @@
 import { linear } from 'regression';
 import * as moment from 'moment';
 // import * as momentRandom from 'moment-random';
-import { EnvConfig } from '@src/exports';
+import { EnvConfig, Trader, Candle } from '@src/exports';
 
 export function randomBetween(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1) + min);
@@ -58,12 +58,25 @@ export function splitBacktestEnv(env: EnvConfig, split: number) {
   return [trainEnv, testEnv];
 }
 
-export function replacePlugins(env: EnvConfig, newPlugins: EnvConfig['candleSetPlugins']) {
+export function getIndicatorLabel(label: string, trader: Trader) {
+  if (trader.config.stratOpts.genOptimizer) return `${trader.config.name}-${label}`;
+  return label;
+}
+
+export function replacePlugins(
+  env: EnvConfig,
+  newPlugins: EnvConfig['candleSetPlugins'],
+  trader: Trader,
+  stratOpts: any
+) {
   if (!newPlugins) newPlugins = [];
+  // prefix traderName if geneticOptimizer enabled
+  if (stratOpts.genOptimizer) newPlugins.forEach(p => (p.label = `${trader.config.name}-${p.label}`));
   if (!env.candleSetPlugins) {
     env.candleSetPlugins = newPlugins;
     return;
   }
+  // Merge newPlugins with existing plugin in environment
   const labels = env.candleSetPlugins.map(p => p.label);
   newPlugins.forEach(p => {
     const idx = labels.indexOf(p.label);

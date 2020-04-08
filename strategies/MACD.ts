@@ -11,7 +11,7 @@ function makeConfig(env: EnvConfig, stratOpts: any) {
       fastPeriod: 12,
       slowPeriod: 26,
       signalPeriod: 9,
-      agg1: '15m',
+      aggTime: '15m',
     },
     stratOpts
   );
@@ -21,7 +21,7 @@ function makeConfig(env: EnvConfig, stratOpts: any) {
       label: 'macd',
       opts: {
         name,
-        aggTime: opts.agg1,
+        aggTime: opts.aggTime,
         fastPeriod: opts.fastPeriod,
         slowPeriod: opts.slowPeriod,
         signalPeriod: opts.signalPeriod,
