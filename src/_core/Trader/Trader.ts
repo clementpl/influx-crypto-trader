@@ -2,7 +2,7 @@ import { Market, Order } from 'ccxt';
 import * as moment from 'moment';
 import { logger } from '@src/logger';
 import { Influx } from '@core/Influx/Influx';
-import { MEASUREMENT_INPUTS } from '@core/Influx/constants';
+import { MEASUREMENT_INPUTS, INFLUX_BATCH_WRITE_SIZE } from '@core/Influx/constants';
 import { EnvConfig, Env } from '@core/Env/Env';
 import { CandleSet } from '@core/Env/CandleSet';
 import { Candle } from '@core/Env/Candle';
@@ -90,24 +90,72 @@ export class Trader {
    * @returns {Promise<void>}
    * @memberof Trader
    */
-  public async init(): Promise<void> {
+  public async init(sharedEnvConfig?: EnvConfig): Promise<void> {
     try {
       // Bind trader strategy if needed (override allowed)
       if (!this.strategy) {
         // Reload strategy module
         this.strategy = requireUncached(`${process.cwd()}/strategies/${this.config.strategie}`).default;
       }
-      // beforeAll callback (can be use to change config or set fixed indicator for the strat)
-      if (this.strategy.beforeAll) await this.strategy.beforeAll(this.config.env, this, this.config.stratOpts);
 
-      // Smart aggTimes discovery (from plugin)
+      this.config.env = sharedEnvConfig ? sharedEnvConfig : this.config.env;
+      // beforeAll callback (can be use to change config or set fixed indicator for the strat)
+      if (this.strategy.beforeAll) {
+        await this.strategy.beforeAll(this.config.env, this, this.config.stratOpts);
+      }
+
+      // Smart aggTimes discovery (from envConfig plugins)
       if (this.config.env.candleSetPlugins) {
         const aggTimePlugins: any[] = this.config.env.candleSetPlugins.map(p => p.opts.aggTime).filter(agg => agg);
         this.config.env.aggTimes = [...new Set(this.config.env.aggTimes.concat(aggTimePlugins))];
       }
+    } catch (error) {
+      logger.error(error);
+      throw new Error(`[${this.config.name}] Problem during trader initialization`);
+    }
+  }
 
-      // Init Env
-      this.env = new Env(this.config.env);
+  /**
+   * Stop the trader (stop environment)
+   *
+   * @returns {Promise<void>}
+   * @memberof Trader
+   */
+  public async stop(status?: Status): Promise<void> {
+    if (this.status !== Status.STOP) {
+      this.status = status || Status.STOP;
+      this.shouldStop = true;
+      if (this.env) this.env.stop();
+      await this.portfolio.flush(true);
+      await this.flushInputs(true);
+      await this.save(true);
+      logger.info(`[${this.config.name}] Trader ${this.config.name} stopped`);
+    }
+  }
+
+  /**
+   * Delete the trader related data from InfluxDB and MongoDB
+   *
+   * @returns {Promise<void>}
+   * @memberof Trader
+   */
+  public async delete(): Promise<void> {
+    await this.stop();
+    await this.portfolio.cleanInflux();
+    await TraderModel.findOneAndDelete({ name: this.config.name });
+    await PortfolioModel.findOneAndDelete({ name: this.config.name });
+  }
+
+  /**
+   * Init trader for run (Create exchange/portfolio)
+   *
+   * @returns {Promise<void>}
+   * @memberof Trader
+   */
+  public async initRunning(sharedEnv?: Env): Promise<void> {
+    try {
+      // Init Env (fetch influx instance)
+      this.env = sharedEnv ? sharedEnv : new Env(this.config.env);
       this.influx = await this.env.init();
       if (this.config.flush) await this.cleanInflux();
       // Init exchange
@@ -128,27 +176,16 @@ export class Trader {
       });
       if (this.config.restart) await this.portfolio.reload(this.influx, this.config.flush);
       else await this.portfolio.init(this.influx, this.config.flush);
+
+      // Set trader status and save
+      this.status = Status.RUNNING;
+      await this.save(true);
+      logger.info(
+        `[${this.config.name}] Trader ${this.config.name} started on ${this.config.base}/${this.config.quote}`
+      );
     } catch (error) {
       logger.error(error);
-      throw new Error(`[${this.config.name}] Problem during trader initialization`);
-    }
-  }
-
-  /**
-   * Stop the trader (stop environment)
-   *
-   * @returns {Promise<void>}
-   * @memberof Trader
-   */
-  public async stop(status?: Status): Promise<void> {
-    if (this.status !== Status.STOP) {
-      this.status = status || Status.STOP;
-      this.shouldStop = true;
-      this.env.stop();
-      await this.portfolio.flush(true);
-      await this.flushInputs(true);
-      await this.save(true);
-      logger.info(`[${this.config.name}] Trader ${this.config.name} stopped`);
+      throw new Error(`[${this.config.name}] Problem during trader running initialization`);
     }
   }
 
@@ -160,67 +197,27 @@ export class Trader {
    */
   public async start(): Promise<void> {
     try {
-      // Set trader status and save
+      // Init running state
+      await this.initRunning();
       this.shouldStop = false;
-      this.status = Status.RUNNING;
-      await this.save(true);
-      logger.info(
-        `[${this.config.name}] Trader ${this.config.name} started on ${this.config.base}/${this.config.quote}`
-      );
 
       // Get generator and fetch first candles (warmup)
       const fetcher = this.env.getGenerator();
       let data: { done: boolean; value: CandleSet | undefined } = { done: false, value: undefined };
       let candleSet: CandleSet | undefined;
+
+      // Loop over data
       while (!this.shouldStop && !data.done) {
-        if (await this.checkTrader()) {
-          // Fetch data
-          data = await fetcher.next();
-          if (!data.done) {
-            candleSet = data.value as CandleSet;
-            const lastCandle = candleSet.getLast(this.symbol) as Candle;
-            // Push indicators to bufferInputs (will write it to influx)
-            if (this.saveInputs && Object.keys(lastCandle.indicators || {}).length > 0) {
-              // TODO Write multiple INPUT serie (ETH,BTC, ETH15m, BTC15m, ...)
-              // this.env.watchers.forEach ...
-              this.bufferInputs.push({
-                time: lastCandle.time,
-                values: flatten(lastCandle.indicators),
-              });
-            }
-            // Update portfolio with new candle
-            this.portfolio.update(lastCandle);
-
-            // Before strat callback
-            if (this.strategy.before) await this.strategy.before(candleSet, this, this.config.stratOpts);
-            // Run strategy
-            const advice = await this.strategy.run(candleSet, this, this.config.stratOpts);
-            // Check if advice is correct (cant buy more than one order at a time)
-            const error = this.checkAdvice(advice);
-            // Process advice (if error => wait)
-            if (!error) {
-              if (advice === 'buy') {
-                await this.buy(lastCandle);
-              } else if (advice === 'sell') {
-                await this.sell(lastCandle);
-              }
-            } else {
-              // WAIT
-              logger.info(error);
-            }
-            // After strat callback
-            if (this.strategy.after) await this.strategy.after(candleSet, this, this.config.stratOpts);
-
-            // Persist inputs/portfolio to influx
-            await this.flushInputs();
-            await this.portfolio.save();
-          }
+        // Fetch data
+        data = await fetcher.next();
+        if (!data.done) {
+          candleSet = data.value as CandleSet;
+          await this.step(candleSet);
         }
       }
-      // Strat finished
-      if (this.strategy.afterAll) await this.strategy.afterAll(candleSet as CandleSet, this, this.config.stratOpts);
-      // Stop trader (will flush buffers influx/mongo)
-      await this.stop();
+
+      // Run finished
+      await this.finishRunning(candleSet as CandleSet);
     } catch (error) {
       await this.stop(Status.ERROR);
       throw error;
@@ -228,16 +225,74 @@ export class Trader {
   }
 
   /**
-   * Delete the trader related data from InfluxDB and MongoDB
+   * Step the trader with new candle
    *
    * @returns {Promise<void>}
    * @memberof Trader
    */
-  public async delete(): Promise<void> {
+  public async step(candleSet: CandleSet): Promise<void> {
+    try {
+      if (this.status !== Status.RUNNING) {
+        logger.error('Cannot STEP a trader not in RUNNING state (use initRunning())');
+        return;
+      }
+
+      if (await this.checkTrader()) {
+        // Fetch data
+        const lastCandle = candleSet.getLast(this.symbol) as Candle;
+        // Push indicators to bufferInputs (will write it to influx)
+        if (this.saveInputs && Object.keys(lastCandle.indicators || {}).length > 0) {
+          // TODO Write multiple INPUT serie (ETH,BTC, ETH15m, BTC15m, ...)
+          // this.env.watchers.forEach ...
+          this.bufferInputs.push({
+            time: lastCandle.time,
+            values: flatten(lastCandle.indicators),
+          });
+        }
+        // Update portfolio with new candle
+        this.portfolio.update(lastCandle);
+
+        // Before strat callback
+        if (this.strategy.before) await this.strategy.before(candleSet, this, this.config.stratOpts);
+        // Run strategy
+        const advice = await this.strategy.run(candleSet, this, this.config.stratOpts);
+        // Check if advice is correct (cant buy more than one order at a time)
+        const error = this.checkAdvice(advice);
+        // Process advice (if error => wait)
+        if (!error) {
+          if (advice === 'buy') {
+            await this.buy(lastCandle);
+          } else if (advice === 'sell') {
+            await this.sell(lastCandle);
+          }
+        } else {
+          // WAIT
+          logger.info(error);
+        }
+        // After strat callback
+        if (this.strategy.after) await this.strategy.after(candleSet, this, this.config.stratOpts);
+
+        // Persist inputs/portfolio to influx
+        await this.flushInputs();
+        await this.portfolio.save();
+      }
+    } catch (error) {
+      await this.stop(Status.ERROR);
+      throw error;
+    }
+  }
+
+  /**
+   * Finish trader run properly
+   *
+   * @param {CandleSet} candleSet
+   * @memberof Trader
+   */
+  public async finishRunning(candleSet: CandleSet) {
+    // Strat finished
+    if (this.strategy.afterAll) await this.strategy.afterAll(candleSet, this, this.config.stratOpts);
+    // Stop trader (will flush buffers influx/mongo)
     await this.stop();
-    await this.portfolio.cleanInflux();
-    await TraderModel.findOneAndDelete({ name: this.config.name });
-    await PortfolioModel.findOneAndDelete({ name: this.config.name });
   }
 
   /**
@@ -302,9 +357,8 @@ export class Trader {
       const minCost = exchangeInfo.limits.cost ? exchangeInfo.limits.cost.min : 0;
       if (this.portfolio.indicators.currentCapital < minCost) {
         logger.error(
-          `[${this.config.name}] Capital not sufficient to buy in market (${this.symbol}), currentCapital: ${
-            this.config.capital
-          }`
+          `[${this.config.name}] Capital not sufficient to buy in market (${this.symbol})` +
+            `, currentCapital: ${this.config.capital}`
         );
         await this.stop();
       }
@@ -376,7 +430,9 @@ export class Trader {
     // If data to write and more than 5 second since last save (or force=true)
     if (
       this.bufferInputs.length > 0 &&
-      (force || Math.abs(moment().diff(this.lastBufferFlush, 's')) > this.flushTimeout)
+      (force ||
+        this.bufferInputs.length >= INFLUX_BATCH_WRITE_SIZE ||
+        Math.abs(moment().diff(this.lastBufferFlush, 's')) > this.flushTimeout)
     ) {
       try {
         await this.influx.writeData({ name: this.config.name }, this.bufferInputs, MEASUREMENT_INPUTS);

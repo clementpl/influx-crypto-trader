@@ -1,3 +1,4 @@
+/* MEASUREMENT */
 // OHLC filled by watchers
 export const MEASUREMENT_OHLC = 'OHLC_FILLED';
 // PORTFOLIO DATA (capital, assetCapital, profit, ...)
@@ -8,3 +9,7 @@ export const MEASUREMENT_TRADES = 'TRADES';
 export const MEASUREMENT_INPUTS = 'INPUTS';
 // TRAINING Data (scores)
 export const MEASUREMENT_TRAINING = 'TRAINING';
+
+/* NUMERIC */
+// INFLUX advice batch size (writing)
+export const INFLUX_BATCH_WRITE_SIZE = 5000;

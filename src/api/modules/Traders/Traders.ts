@@ -24,6 +24,7 @@ export class Traders {
       const portfolios: PortfolioModel[] = await PortfolioModel.find();
       return traders.map((t: any) => {
         const trader: any = t.toJSON();
+        // TODO not fetch tradeHistory when getting portfolio (only fetch indicators: capital/profit/holdprofit/...)
         trader.portfolio = portfolios.find(p => trader.name === p.name);
         return trader;
       });

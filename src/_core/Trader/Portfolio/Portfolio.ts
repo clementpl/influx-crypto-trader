@@ -3,7 +3,7 @@ import { Order } from 'ccxt';
 import { Influx } from '../../Influx/Influx';
 import { Candle } from '../../Env/Candle';
 import { logger } from '../../../logger';
-import { MEASUREMENT_PORTFOLIO, MEASUREMENT_TRADES } from '../../Influx/constants';
+import { MEASUREMENT_PORTFOLIO, MEASUREMENT_TRADES, INFLUX_BATCH_WRITE_SIZE } from '../../Influx/constants';
 import { PortfolioModel } from './model';
 
 export interface PortfolioConfig {
@@ -47,7 +47,7 @@ export class Portfolio {
   private lastCandle: Candle;
   private firstCandle: Candle | undefined;
   // Buffer size of history (indicator/trades)
-  private bufferSize: number = 2000;
+  private bufferSize: number = 100;
   // InfluxDb client
   private influx: Influx;
   /**
@@ -285,7 +285,14 @@ export class Portfolio {
     // If lastFlushTime > flushTimeout flush buffer
     // - Backtest every 5 second
     // - Streaming every minutes "normal behavior"
-    if (!this.conf.backtest || force || moment().diff(moment(this.lastFlushTime), 's') >= this.flushTimeout) {
+    if (
+      !this.conf.backtest ||
+      force ||
+      this.updateBuffer.length >= INFLUX_BATCH_WRITE_SIZE ||
+      this.buyBuffer.length >= INFLUX_BATCH_WRITE_SIZE ||
+      this.sellBuffer.length >= INFLUX_BATCH_WRITE_SIZE ||
+      moment().diff(moment(this.lastFlushTime), 's') >= this.flushTimeout
+    ) {
       // Write async (update/buy/sell)
       const tags = { name: this.conf.name };
       try {
@@ -327,8 +334,8 @@ export class Portfolio {
   private pushTrade(): void {
     const trade = JSON.parse(JSON.stringify(this.trade));
     this.tradeHistory.push(trade);
-    if (this.tradeHistory.length > this.bufferSize) {
+    /*if (this.tradeHistory.length > this.bufferSize) {
       this.tradeHistory.splice(0, this.tradeHistory.length - this.bufferSize);
-    }
+    }*/
   }
 }
