@@ -5,6 +5,7 @@ import { Candle } from '../../Env/Candle';
 import { logger } from '../../../logger';
 import { MEASUREMENT_PORTFOLIO, MEASUREMENT_TRADES, INFLUX_BATCH_WRITE_SIZE } from '../../Influx/constants';
 import { PortfolioModel } from './model';
+import { calcSharpeRatio, calcSortinaRatio, standardDeviation } from './indicatorHelpers';
 
 export interface PortfolioConfig {
   name: string;
@@ -26,6 +27,12 @@ export interface PortfolioIndicators {
   percentTradeWin: number;
 }
 
+export interface BacktestIndicators {
+  sharpeRatio: number;
+  sortinaRatio: number;
+  stdDev: number;
+}
+
 export interface PortfolioTrade {
   orderBuy: Order;
   orderSell: Order | undefined;
@@ -41,6 +48,7 @@ export interface PortfolioTrade {
  */
 export class Portfolio {
   public indicators: PortfolioIndicators;
+  public backtestIndicators: BacktestIndicators;
   public trade: PortfolioTrade | undefined;
   public indicatorHistory: PortfolioIndicators[] = [];
   public tradeHistory: PortfolioTrade[] = [];
@@ -230,6 +238,19 @@ export class Portfolio {
       this.updateBuffer.push({ values: indicator, time: lastCandle.time });
       this.hasInitSeries = true;
     }
+  }
+
+  /**
+   * Caculate backtest indicators (sharpe/sortina)
+   *
+   * @memberof Portfolio
+   */
+  public calcBacktestIndicators() {
+    this.backtestIndicators = {
+      sharpeRatio: calcSharpeRatio(this.tradeHistory),
+      sortinaRatio: calcSortinaRatio(this.tradeHistory),
+      stdDev: standardDeviation(this.tradeHistory),
+    };
   }
 
   /**
