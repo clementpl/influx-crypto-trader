@@ -9,20 +9,29 @@ import { Status, PortfolioTrade } from '@src/_core/exports';
 interface Fitness {
   currentProfit: number;
   percentTradeWin: number;
-  sharpeRatio: number;
-  tradeFrequency: number;
-  total: number;
+  sortinaRatio: number;
   [name: string]: number;
 }
 
 class TraderWorker extends TraderWorkerBase {
   public fitnesses: Fitness[];
+  public fitnessMean: Fitness;
+  public fitnessStd: Fitness;
+  public fitnessMeanRed: Fitness;
   public hasRunned: boolean = false;
+  public rank: number;
+  [name: string]: any;
 }
 
-interface GeneticOpts {
+export enum FitnessType {
+  FITNESS_MEAN = 'fitnessMean',
+  FITNESS_MEAN_RED = 'fitnessMeanRed',
+}
+
+export interface GeneticOpts {
   silent: boolean;
   threads: number;
+  fitnessType: FitnessType;
   generation: number;
   popSize: number;
   elitism: number;
@@ -76,10 +85,74 @@ function randomIndiv(traderConfig: TraderConfig, opts: GeneticOpts, gen: number,
   return createTraderWorker(traderConfig, `${traderConfig.name}-gen${gen}-ind${ind}`, newOpts, opts.silent);
 }
 
+function calculateFitnessRank(generation: TraderWorker[], fitnessType: FitnessType) {
+  // Compute fitness mean/std/meanReduce for each indiv
+  generation.forEach(t => {
+    // Calc sum
+    t.fitnessMean = t.fitnesses.reduce(
+      (acc, current) => {
+        Object.keys(acc).forEach(k => (acc[k] += current[k]));
+        return acc;
+      },
+      { currentProfit: 0, percentTradeWin: 0, sortinaRatio: 0 }
+    );
+    // Calc mean
+    Object.keys(t.fitnessMean).forEach(k => (t.fitnessMean[k] /= t.fitnesses.length));
+
+    // Calc Variance (val - mean) pow2
+    t.fitnessStd = t.fitnesses.reduce(
+      (acc, current) => {
+        Object.keys(acc).forEach(k => {
+          acc[k] += Math.pow(current[k] - t.fitnessMean[k], 2);
+        });
+        return acc;
+      },
+      { currentProfit: 0, percentTradeWin: 0, sortinaRatio: 0 }
+    );
+    // Calc standard deviation (=sqrt(variance))
+    Object.keys(t.fitnessStd).forEach(k => (t.fitnessStd[k] = Math.sqrt(t.fitnessStd[k])));
+    // Calc mean reduite
+    t.fitnessMeanRed = { currentProfit: 0, percentTradeWin: 0, sortinaRatio: 0 };
+    Object.keys(t.fitnessMeanRed).forEach(k => (t.fitnessMeanRed[k] = t.fitnessMean[k] - t.fitnessStd[k]));
+  });
+
+  // Compute rank
+  generation.forEach(t => {
+    t.rank = 1;
+    generation.forEach(t2 => {
+      if (t.config.name !== t2.config.name) {
+        let objectiveWins = 0;
+        if (t[fitnessType].currentProfit > t2[fitnessType].currentProfit) objectiveWins++;
+        if (t[fitnessType].percentTradeWin > t2[fitnessType].percentTradeWin) objectiveWins++;
+        if (t[fitnessType].sortinaRatio > t2[fitnessType].sortinaRatio) objectiveWins++;
+        if (objectiveWins < 2) t.rank++;
+      }
+    });
+  });
+  generation = generation.sort((a, b) => a.rank - b.rank);
+  // convert non suite rank [2,2,2,3,7,8,8,...] to correct rank suite [1,1,1,2,3,4,4,...]
+  let lastRank: number;
+  let newRankIdx = 1;
+  generation.forEach((t, idx) => {
+    if (idx === 0) {
+      lastRank = t.rank;
+    } else if (t.rank > lastRank) {
+      lastRank = t.rank;
+      newRankIdx++;
+    }
+    t.rank = newRankIdx;
+  });
+}
+
+function sumFitness(fitness: Fitness) {
+  return Object.values(fitness).reduce((acc, current) => (acc += current), 0);
+}
+
 function tournamentSelection(generation: TraderWorker[], participant: number = 4): TraderWorker[] {
-  const checkSameFitness = (indivs: TraderWorker[], fitness: number) => {
-    for (const trader of indivs) {
-      if (getFitness(trader) === fitness) return true;
+  const checkSameFitness = (indivs: TraderWorker[], trader: TraderWorker) => {
+    const fitnessTarget = sumFitness(trader.fitnessMean);
+    for (const t of indivs) {
+      if (sumFitness(t.fitnessMean) === fitnessTarget) return true;
     }
     return false;
   };
@@ -88,67 +161,15 @@ function tournamentSelection(generation: TraderWorker[], participant: number = 4
   for (let i = 0; i < participant; i++) {
     let trader = generation[randomBetween(0, generation.length - 1, true)];
     let j = 0;
-    while (j++ < generation.length && checkSameFitness(traders, getFitness(trader))) {
+    // Search for other trader different from first one
+    while (j++ < generation.length && checkSameFitness(traders, trader)) {
       trader = generation[randomBetween(0, generation.length - 1, true)];
     }
     traders.push(trader);
   }
   // return 2 best traders from tournament
-  return traders.sort((a: any, b: any) => getFitness(b) - getFitness(a)).slice(0, 2);
-  // multi objective selection
-  /* TODO: Test multi objective
-  traders.forEach((t1: any, idx1: number) => {
-    t1.rank = 0;
-    traders.forEach((t2, idx2) => {
-      if (idx1 !== idx2) {
-        const t1Fit = [
-          getFitness(t1, 'currentProfit'),
-          getFitness(t1, 'percentTradeWin'),
-          getFitness(t1, 'sharpeRatio'),
-        ];
-        const t2Fit = [
-          getFitness(t2, 'currentProfit'),
-          getFitness(t2, 'percentTradeWin'),
-          getFitness(t2, 'sharpeRatio'),
-        ];
-        let t1Dominance = 0;
-        let t2Dominance = 0;
-        for (let i = 0; i < t1Fit.length; i++) {
-          if (t1Fit[i] > t2Fit[i]) t1Dominance++;
-          if (t1Fit[i] < t2Fit[i]) t2Dominance++;
-        }
-        if (t1Dominance > t2Dominance) t1.rank++;
-      }
-    });
-  });
-  return traders.sort((a: any, b: any) => b.rank - a.rank).slice(0, 2);*/
-}
-
-function getFitness(trader: TraderWorker, key: string = 'total'): number {
-  let sum = 0;
-  for (const fitness of trader.fitnesses) {
-    sum += fitness[key];
-  }
-  const score = sum / trader.fitnesses.length;
-  // Add 0.5 bonus points to total
-  // let bonus = 0;
-  /*if (key === 'total') {
-    if (trader.fitnesses.filter(f => f.currentProfit > 0.05).length === trader.fitnesses.length) bonus += 0.25;
-    if (trader.fitnesses.filter(f => f.percentTradeWin > 0.6).length === trader.fitnesses.length) bonus += 0.25;
-  }*/
-  return score; // + bonus;
-}
-
-function calcSharpeRatio(tradeHistory: PortfolioTrade[]) {
-  const sumT = tradeHistory.reduce((sum, t) => (sum += t.orderProfit), 0);
-  const meanT = sumT / tradeHistory.length;
-  const squaredMeanDiff = tradeHistory.reduce(
-    (sum, t) => (sum += (t.orderProfit - meanT) * (t.orderProfit - meanT)),
-    0
-  );
-  const stdDev = Math.sqrt(squaredMeanDiff / tradeHistory.length);
-  const sharpeRatio = (meanT - 0.005) / stdDev;
-  return sharpeRatio;
+  const toRet = traders.sort((a: any, b: any) => a.rank - b.rank).slice(0, 2);
+  return toRet;
 }
 
 function calcFitness(trader: TraderWorker): Fitness {
@@ -158,20 +179,15 @@ function calcFitness(trader: TraderWorker): Fitness {
   // Percent Trade Win
   const tradeHistory: PortfolioTrade[] = deepFind(trader, 'trader.portfolio.tradeHistory') || [];
   const percentTradeWin =
-    tradeHistory.length > 0 ? tradeHistory.filter(trade => trade.orderProfit > 0.002).length / tradeHistory.length : 0;
-  // Sharpe ratio
-  let sharpeRatio = tradeHistory.length > 1 ? calcSharpeRatio(tradeHistory) : 0;
-  sharpeRatio = sharpeRatio < 0 ? 0 : sharpeRatio > 4 ? 4 : sharpeRatio;
-  // Trade Frequency (score=1 if more than 1 trade every 2 weeks)
-  const { start, stop } = trader.config.env.backtest!;
-  const limit = Math.floor(daysBetween(new Date(start), new Date(stop)) / 14);
-  const tradeFrequency = tradeHistory.length > limit ? 1 : tradeHistory.length / limit;
+    tradeHistory.length > 0 ? tradeHistory.filter(trade => trade.orderProfit > 0).length / tradeHistory.length : 0;
+  // Sharpe/Sortina ratio
+  // const sharpeRatio = deepFind(trader, 'trader.portfolio.backtestIndicators.sharpeRatio');
+  const sortinaRatio = deepFind(trader, 'trader.portfolio.backtestIndicators.sortinaRatio');
+
   return {
     currentProfit,
     percentTradeWin,
-    sharpeRatio,
-    tradeFrequency,
-    total: currentProfit + 0.5 * percentTradeWin + 0.5 * tradeFrequency + sharpeRatio / 4,
+    sortinaRatio,
   };
 }
 
@@ -235,7 +251,7 @@ function breedNewGeneration(
   gen: number
 ): TraderWorker[] {
   // sort by fitness (but keep only different fitness at the top => try to avoid same indiv convergence)
-  generation = generation.sort((a: any, b: any) => getFitness(b) - getFitness(a));
+  generation = generation.sort((a: any, b: any) => a.rank - b.rank);
   const generationResort: TraderWorker[] = [];
   let currentIdx = 1;
   // Sort indiv by fitness (take care of keeping only one version of each individu)
@@ -244,7 +260,9 @@ function breedNewGeneration(
     if (idx === 0) generationResort.push(indiv);
     else {
       // If same fitness push back
-      if (getFitness(indiv) - getFitness(generation[idx - 1]) === 0) generationResort.push(indiv);
+      if (sumFitness(indiv.fitnessMean) - sumFitness(generation[idx - 1].fitnessMean) === 0) {
+        generationResort.push(indiv);
+      }
       // Else push front
       else generationResort.splice(currentIdx++, 0, indiv);
     }
@@ -256,7 +274,15 @@ function breedNewGeneration(
   // keep best indiv
   const bestIndivs = generation.slice(0, opts.elitism);
   newGeneration.push(...bestIndivs);
-  // Mutate or breed new indiv
+
+  // New random indiv (mini 1 new random indiv to max 20%)
+  const newRandIndiv = randomBetween(1, Math.floor(newGeneration.length / 5), true);
+  let i = 0;
+  while (newGeneration.length < opts.popSize && i++ < newRandIndiv) {
+    newGeneration.push(randomIndiv(traderConfig, opts, gen, newGeneration.length));
+  }
+
+  // Mutate or crossover new indiv
   while (newGeneration.length < opts.popSize) {
     const rand = randomBetween(0, 1);
     // Breed indiv using crossover (60%)
@@ -266,14 +292,10 @@ function breedNewGeneration(
       // create children
       newGeneration.push(crossover(`${traderConfig.name}-gen${gen}-ind${newGeneration.length}`, t1, t2, opts));
     }
-    // Breed indiv using mutation (30%)
-    else if (rand < 0.9) {
+    // Breed indiv using mutation (40%)
+    else {
       const t = generation[randomBetween(0, generation.length - 1, true)];
       newGeneration.push(mutate(traderConfig, t, opts, gen, newGeneration.length));
-    }
-    // New random indiv (10%)
-    else {
-      newGeneration.push(randomIndiv(traderConfig, opts, gen, newGeneration.length));
     }
   }
   return newGeneration;
@@ -303,28 +325,41 @@ function makeGeneration(traderConfig: TraderConfig, opts: GeneticOpts, gen: numb
 
 /* tslint:disable */
 export class Optimizer {
-  public static runningTraders: TraderWorker[] = [];
+  public static generation: TraderWorker[] = [];
   public static pqueue: PQueue;
+
   public static getQueue(concurrency: number): PQueue {
     if (Optimizer.pqueue) Optimizer.pqueue.clear();
     Optimizer.pqueue = new PQueue({ concurrency, autoStart: true });
     return Optimizer.pqueue;
   }
 
+  public static stop() {
+    if (Optimizer.pqueue) Optimizer.pqueue.clear();
+    if (Optimizer.generation.length > 0) {
+      Optimizer.generation.forEach(t => t.stop());
+    }
+  }
+
   public static async genetic(trader: TraderConfig, opts: GeneticOpts) {
     let gen = 0;
     const traderConfig = { ...trader };
-    let generation;
+    let generation: TraderWorker[] = [];
+
     while (gen < opts.generation) {
       try {
-        generation = !generation
-          ? makeGeneration(traderConfig, opts, gen)
-          : breedNewGeneration(traderConfig, generation, opts, gen);
+        generation =
+          generation.length === 0
+            ? makeGeneration(traderConfig, opts, gen)
+            : breedNewGeneration(traderConfig, generation, opts, gen);
+
+        // Bind generation to optimizer (enable ctrl+c exit)
+        Optimizer.generation = generation;
         // Clear promise queue
         const pqueue = Optimizer.getQueue(opts.threads);
         pqueue.clear();
         // Add promise to execute inside queue (start executing it)
-        generation.forEach((t: TraderWorker) => {
+        generation.forEach(t => {
           pqueue
             .add(
               // Exec trader task
@@ -351,9 +386,7 @@ export class Optimizer {
                     t.fitnesses.push({
                       currentProfit: -1,
                       percentTradeWin: -1,
-                      sharpeRatio: -1,
-                      tradeFrequency: -1,
-                      total: -1,
+                      sortinaRatio: -1,
                     });
                     if (t.trader.status !== Status.STOP) await t.stop().catch(error => logger.error(error));
                     reject(error);
@@ -369,27 +402,41 @@ export class Optimizer {
         // Wait end of runnings trader
         await pqueue.onIdle();
 
+        // Calculate rank (multi objective) and sort it (by rank)
+        calculateFitnessRank(generation, opts.fitnessType);
+
         // LOGGING
-        // sort by fitness
-        const g = generation.sort((a: any, b: any) => getFitness(b) - getFitness(a));
+        // Traders already sort by fitness
+        const g = generation;
         logger.info('RESULT GEN ' + gen);
-        const fitnesses = g.map((t: any) => getFitness(t));
+        const fitnessesSummed = g.map(t => sumFitness(t[opts.fitnessType]));
+        const fitnessesCurrentProfit = g.map(t => t[opts.fitnessType].currentProfit);
+        const fitnessesPercentTradeWin = g.map(t => t[opts.fitnessType].percentTradeWin);
+        const fitnessesSortinaRatio = g.map(t => t[opts.fitnessType].sortinaRatio);
         logger.info(
           g
-            .map((t: TraderWorker) => {
-              const total = getFitness(t);
-              const currentProfit = getFitness(t, 'currentProfit');
-              const percentTradeWin = getFitness(t, 'percentTradeWin');
-              const sharpeRatio = getFitness(t, 'sharpeRatio');
-              const tradeFrequency = getFitness(t, 'tradeFrequency');
-              return `[${
-                t.config.name
-              }] total: ${total}, currentProfit: ${currentProfit}, percentTradeWin: ${percentTradeWin}, sharpeRatio: ${sharpeRatio}, tradeFrequency: ${tradeFrequency}`;
+            .map(t => {
+              return `[${t.config.name}] rank: ${t.rank}, currentProfit: ${
+                t[opts.fitnessType].currentProfit
+              }, percentTradeWin: ${t[opts.fitnessType].percentTradeWin}, sortinaRatio: ${
+                t[opts.fitnessType].sortinaRatio
+              }`;
             })
             .join('\n')
         );
         logger.info(
-          'mean: ' + mean(...fitnesses) + ' min: ' + Math.min(...fitnesses) + ' max: ' + Math.max(...fitnesses)
+          `[fitnessesSummed] mean: ${mean(...fitnessesSummed)} min: ${Math.min(...fitnessesSummed)} max: ${Math.max(
+            ...fitnessesSummed
+          )}\n` +
+            `[fitnessesCurrentProfit] mean: ${mean(...fitnessesCurrentProfit)} min: ${Math.min(
+              ...fitnessesCurrentProfit
+            )} max: ${Math.max(...fitnessesCurrentProfit)}\n` +
+            `[fitnessesPercentTradeWin] mean: ${mean(...fitnessesPercentTradeWin)} min: ${Math.min(
+              ...fitnessesPercentTradeWin
+            )} max: ${Math.max(...fitnessesPercentTradeWin)}\n` +
+            `[fitnessesSortinaRatio] mean: ${mean(...fitnessesSortinaRatio)} min: ${Math.min(
+              ...fitnessesSortinaRatio
+            )} max: ${Math.max(...fitnessesSortinaRatio)}\n`
         );
         // Flush config of the generation
         mkdirSync(`optimizer/genetic/${traderConfig.name}`, { recursive: true });
@@ -398,11 +445,27 @@ export class Optimizer {
           `${JSON.stringify(
             {
               result: {
-                mean: mean(...fitnesses),
-                min: Math.min(...fitnesses),
-                max: Math.max(...fitnesses),
+                mean: mean(...fitnessesSummed),
+                min: Math.min(...fitnessesSummed),
+                max: Math.max(...fitnessesSummed),
+                meanProfit: mean(...fitnessesCurrentProfit),
+                minProfit: Math.min(...fitnessesCurrentProfit),
+                maxProfit: Math.max(...fitnessesCurrentProfit),
+                meanTradeWin: mean(...fitnessesPercentTradeWin),
+                minTradeWin: Math.min(...fitnessesPercentTradeWin),
+                maxTradeWin: Math.max(...fitnessesPercentTradeWin),
+                meanSortinaRatio: mean(...fitnessesSortinaRatio),
+                minSortinaRatio: Math.min(...fitnessesSortinaRatio),
+                maxSortinaRatio: Math.max(...fitnessesSortinaRatio),
               },
-              gen: g.map(t => ({ name: t.config.name, fitness: t.fitnesses, config: t.config.stratOpts })),
+              gen: g.map(t => ({
+                name: t.config.name,
+                fitnessMean: t.fitnessMean,
+                fitnessStd: t.fitnessStd,
+                fitnessMeanRed: t.fitnessMeanRed,
+                fitness: t.fitnesses,
+                config: t.config.stratOpts,
+              })),
             },
             null,
             2
@@ -410,20 +473,10 @@ export class Optimizer {
         );
         gen++;
       } catch (error) {
-        if (generation) generation.forEach(t => t.stop().catch(error => logger.error(error)));
+        if (generation) generation.forEach(t => t.stop().catch((error: any) => logger.error(error)));
         logger.error(error);
         throw Error('Problem during genetic optimization');
       }
     }
   }
-}
-
-// helper
-function daysBetween(date1: Date, date2: Date) {
-  // Get 1 day in milliseconds
-  const oneDay = 1000 * 60 * 60 * 24;
-  // Calculate the difference in milliseconds
-  const diffms = date2.getTime() - date1.getTime();
-  // Convert back to days and return
-  return Math.round(diffms / oneDay);
 }

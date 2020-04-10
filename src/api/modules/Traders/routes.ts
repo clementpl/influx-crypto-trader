@@ -33,6 +33,18 @@ const traderPayload: any = {
   },
 };
 
+const optimizerPayload: any = {
+  silent: Joi.boolean().optional(),
+  threads: Joi.number().required(),
+  fitnessType: Joi.string().required(),
+  generation: Joi.number().required(),
+  popSize: Joi.number().required(),
+  elitism: Joi.number().required(),
+  mutationRate: Joi.number().required(),
+  envs: Joi.array().required(),
+  genes: Joi.array().required(),
+};
+
 export const routes: any[] = [
   {
     method: 'POST',
@@ -41,7 +53,7 @@ export const routes: any[] = [
     options: {
       validate: {
         payload: {
-          opts: Joi.object(),
+          opts: optimizerPayload,
           trader: traderPayload,
         },
       },

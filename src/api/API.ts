@@ -2,6 +2,7 @@ import { Server } from 'hapi';
 import { logger } from '@src/logger';
 import { routes } from './modules/routes';
 import { Traders } from './modules/Traders/Traders';
+import { Optimizer } from './modules/Traders/Optimizer';
 
 export interface APIConfig {
   port?: number;
@@ -75,5 +76,6 @@ export class API {
     }
     // Stop running traders
     Traders.runningTraders.forEach(trader => trader.stop());
+    Optimizer.stop();
   }
 }

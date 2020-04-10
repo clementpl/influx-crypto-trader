@@ -3,7 +3,7 @@ import { Request } from 'hapi';
 import * as Boom from 'boom';
 import { logger, TraderConfig, TraderWorker, Status, TraderModel } from '../../../../src/exports';
 import { success } from '../../helpers';
-import { Optimizer } from './Optimizer';
+import { Optimizer, GeneticOpts, FitnessType } from './Optimizer';
 import { MEASUREMENT_PORTFOLIO, MEASUREMENT_TRADES, Influx } from '@src/_core/exports';
 import { config } from '@config/config';
 import { PortfolioModel } from '@src/_core/Trader/Portfolio/model';
@@ -232,7 +232,13 @@ export class Traders {
    */
   public static async optimizeTrader(request: Request): Promise<any> {
     try {
-      const { trader, opts } = <any>request.payload;
+      const { trader, opts } = <{ trader: TraderConfig; opts: GeneticOpts }>request.payload;
+      if (!Object.values(FitnessType).includes(opts.fitnessType)) {
+        return Boom.badRequest(
+          `FitnessType: ${opts.fitnessType} not exist, choose between [${Object.values(FitnessType).join(', ')}]`
+        );
+      }
+
       Optimizer.genetic(trader, opts).catch(error => logger.error(error));
       logger.info(`[API] Genetic optimizer for ${trader.name} launch`);
       return success();
