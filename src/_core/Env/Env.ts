@@ -50,13 +50,14 @@ export class Env {
     this.conf.batchSize = this.conf.batchSize || 10000;
     this.conf.warmup = this.conf.warmup || 10000;
     this.candleSet = new CandleSet({
-      bufferSize: conf.bufferSize || 5000,
+      bufferSize: conf.bufferSize || 500,
       indicators: conf.candleSetPlugins || [],
       aggTimes: conf.aggTimes || [],
     });
   }
 
   public async init(): Promise<Influx> {
+    if (this.influx) return this.influx;
     this.influx = new Influx(config.influx);
     await this.influx.init().catch(error => {
       throw error;
@@ -70,7 +71,7 @@ export class Env {
    * @returns {*}
    * @memberof Env
    */
-  public async *getGenerator(): any {
+  public async *getGenerator() {
     try {
       if (this.conf.backtest) {
         const { start, stop } = this.conf.backtest;
@@ -119,13 +120,23 @@ export class Env {
             since: since.utc().format(),
           });
           const { indicators, ...lastValue } = this.candleSet.getLast(Env.makeSymbol(tags)) as Candle;
-          // Update data (if data fetched)
+          // Update data (if data fetched AND price coherence)
           if (ret && ret.length > 0) {
             const newValue = ret[ret.length - 1];
+            // Calculate priceChange (for coherence)
+            const priceChange = lastValue ? Math.abs(lastValue.close - newValue.close) / lastValue.close : 0;
             // Check if new value inserted
-            if (JSON.stringify(newValue) !== JSON.stringify(lastValue)) {
+            if (priceChange < 0.5 && JSON.stringify(newValue) !== JSON.stringify(lastValue)) {
               await this.candleSet.push(ret, Env.makeSymbol(tags));
               hasUpdate = true;
+            }
+            // Log priceChange error
+            else if (priceChange > 0.5) {
+              logger.info(
+                `[STREAMING] Price change problem (${priceChange})\n newVal: ${JSON.stringify(
+                  newValue
+                )}\n oldVal: ${JSON.stringify(lastValue)}`
+              );
             }
           } else {
             logger.info(
@@ -227,7 +238,7 @@ export class Env {
       for (const tags of this.conf.watchList) {
         // copy warmup (enable warmup for each currency)
         let warm = warmup;
-        // start fetching data (by batch of 1000)
+        // start fetching data (by batch of 10000)
         const since = start.subtract(warm, 'm');
         while (warm > 0) {
           // fetch data

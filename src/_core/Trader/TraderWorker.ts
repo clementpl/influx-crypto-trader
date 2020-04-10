@@ -1,6 +1,7 @@
-import { fork, ChildProcess } from 'child_process';
 import { TraderConfig, Trader, Status } from './Trader';
 import { deepFind } from '@src/_core/helpers';
+import { Worker } from 'worker_threads';
+import { logger } from '@src/logger';
 
 /**
  * TraderWorker class help to create a trader in another process (fork) and send command to the worker using IPC
@@ -12,8 +13,8 @@ import { deepFind } from '@src/_core/helpers';
 export class TraderWorker {
   // Trader data reference (refresh when trader stoppped)
   public trader: Trader;
-  // Trader child process
-  private traderProcess: ChildProcess;
+  // Trader worker thread
+  private workerThread: Worker;
   private killed: boolean = false;
   // Track command response to send back (with promise)
   private resolver: { [command: string]: { resolve: any; reject: any } } = {};
@@ -35,13 +36,13 @@ export class TraderWorker {
    * @memberof TraderWorker
    */
   public async init(): Promise<any> {
-    this.traderProcess = fork(__dirname + '/worker.ts', [], {
-      silent: this.opts.silent,
-      execArgv: ['-r', 'ts-node/register', '-r', 'tsconfig-paths/register'],
+    this.workerThread = new Worker(__dirname + '/worker.import.js', {
+      // workerData : {...}
+      stdout: this.opts.silent,
     });
     this.killed = false;
     // Dispatch response command
-    this.traderProcess.on('message', msg => {
+    this.workerThread.on('message', msg => {
       // Get response
       const { command, code, args } = JSON.parse(msg);
       // Find promise to resolve
@@ -50,7 +51,7 @@ export class TraderWorker {
       this.trader = args.config && args.config.name && args.config.exchange ? args : this.trader;
       // STOP special behavior
       if (command === 'STOP' || command === 'DELETE') {
-        this.traderProcess.kill();
+        this.workerThread.terminate();
         this.killed = true;
       }
       // Default behavior (resolve promise)
@@ -145,7 +146,7 @@ export class TraderWorker {
       args,
     });
     // if (!this.traderProcess) throw Error(`No trader process running ${this.config.name} (should init first)`);
-    this.traderProcess.send(payload);
+    if (this.workerThread) this.workerThread.postMessage(payload);
   }
 
   /**

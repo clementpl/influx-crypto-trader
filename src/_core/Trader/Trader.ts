@@ -293,6 +293,7 @@ export class Trader {
     if (this.strategy.afterAll) await this.strategy.afterAll(candleSet, this, this.config.stratOpts);
     // Stop trader (will flush buffers influx/mongo)
     await this.stop();
+    this.portfolio.calcBacktestIndicators();
   }
 
   /**

@@ -2,9 +2,7 @@ import { TraderConfig, Trader } from './Trader';
 import { deepFind, sleep } from '../helpers';
 import { Mongo } from '@src/_core/Mongo/Mongo';
 import { config as projectConfig } from '@config/config';
-
-// TODO: Worker threads
-// https://wanago.io/2019/05/06/node-js-typescript-12-worker-threads/
+import { parentPort } from 'worker_threads';
 
 /**
  * Helper send error to master process
@@ -26,7 +24,7 @@ function errorHandler(command: string) {
  * @param {*} msg
  */
 function send(command: string, code: number, msg: any) {
-  process.send!(
+  parentPort!.postMessage(
     JSON.stringify({
       command,
       code,
@@ -43,7 +41,7 @@ async function main() {
   let trader: Trader;
 
   // Process message from master and dispatch the command to the good function
-  process.on('message', async msg => {
+  parentPort!.on('message', async msg => {
     const { command, args } = JSON.parse(msg);
     if (!trader && command !== 'INIT') {
       errorHandler(command)(new Error(`No trader exist, can't execute command [${command}], use INIT command before`));
