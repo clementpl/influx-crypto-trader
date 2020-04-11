@@ -1,7 +1,8 @@
-import * as Joi from 'joi';
+import * as Joi from '@hapi/joi';
 import { Training } from './Training';
+import { ServerRoute } from '@hapi/hapi';
 
-const traderPayload: any = {
+const traderPayload: any = Joi.object({
   name: Joi.string().required(),
   test: Joi.boolean(),
   capital: Joi.number().required(),
@@ -25,9 +26,9 @@ const traderPayload: any = {
     apiKey: Joi.string(),
     apiSecret: Joi.string(),
   },
-};
+});
 
-export const routes: any[] = [
+export const routes: ServerRoute[] = [
   {
     method: 'GET',
     path: '/training',

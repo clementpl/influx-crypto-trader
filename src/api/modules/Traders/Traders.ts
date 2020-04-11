@@ -1,6 +1,6 @@
 import { existsSync } from 'fs';
 import { Request } from '@hapi/hapi';
-import * as Boom from 'boom';
+import * as Boom from '@hapi/boom';
 import { logger, TraderConfig, TraderWorker, TraderModel } from '../../../../src/exports';
 import { success } from '../../helpers';
 import { Optimizer, GeneticOpts, FitnessType } from './Optimizer';

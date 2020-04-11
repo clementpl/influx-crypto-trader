@@ -1,7 +1,8 @@
-import * as Joi from 'joi';
+import * as Joi from '@hapi/joi';
+import { ServerRoute } from '@hapi/hapi';
 import { Traders } from './Traders';
 
-const traderPayload: any = {
+const traderPayload = Joi.object({
   name: Joi.string().required(),
   test: Joi.boolean().required(),
   silent: Joi.boolean().optional(),
@@ -14,26 +15,26 @@ const traderPayload: any = {
   percentInvest: Joi.number().required(),
   base: Joi.string().required(),
   quote: Joi.string().required(),
-  env: {
+  env: Joi.object({
     watchList: Joi.any().required(),
     warmup: Joi.number().optional(),
     batchSize: Joi.number().optional(),
     bufferSize: Joi.number().optional(),
-    backtest: {
+    backtest: Joi.object({
       start: Joi.string().required(),
       stop: Joi.string().required(),
-    },
+    }),
     aggTimes: Joi.array().optional(),
     candleSetPlugins: Joi.array().optional(),
-  },
-  exchange: {
+  }),
+  exchange: Joi.object({
     name: Joi.string().required(),
     apiKey: Joi.string().optional(),
     apiSecret: Joi.string().optional(),
-  },
-};
+  }),
+});
 
-const optimizerPayload: any = {
+const optimizerPayload: any = Joi.object({
   silent: Joi.boolean().optional(),
   threads: Joi.number().required(),
   fitnessType: Joi.string().required(),
@@ -43,19 +44,19 @@ const optimizerPayload: any = {
   mutationRate: Joi.number().required(),
   envs: Joi.array().required(),
   genes: Joi.array().required(),
-};
+});
 
-export const routes: any[] = [
+export const routes: ServerRoute[] = [
   {
     method: 'POST',
     path: '/traders/optimize',
     handler: Traders.optimizeTrader,
     options: {
       validate: {
-        payload: {
+        payload: Joi.object({
           opts: optimizerPayload,
           trader: traderPayload,
-        },
+        }),
       },
       tags: ['Traders', 'API'],
       description: 'POST Optimize a trader strategy using genetic algorithm',
