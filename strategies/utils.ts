@@ -1,7 +1,7 @@
 import { linear } from 'regression';
 import * as moment from 'moment';
 // import * as momentRandom from 'moment-random';
-import { EnvConfig, Trader, Candle } from '@src/exports';
+import { EnvConfig, Trader } from '@src/exports';
 
 export function randomBetween(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1) + min);
@@ -63,7 +63,25 @@ export function getIndicatorLabel(label: string, trader: Trader) {
   return label;
 }
 
-export function replacePlugins(
+export function replacePlugins(env: EnvConfig, newPlugins: EnvConfig['candleSetPlugins']) {
+  if (!newPlugins) newPlugins = [];
+  if (!env.candleSetPlugins) {
+    env.candleSetPlugins = newPlugins;
+    return;
+  }
+  // Merge newPlugins with existing plugin in environment
+  const labels = env.candleSetPlugins.map(p => p.label);
+  newPlugins.forEach(p => {
+    const idx = labels.indexOf(p.label);
+    if (idx === -1) {
+      env.candleSetPlugins!.push(p);
+    } else {
+      env.candleSetPlugins!.splice(idx, 1, p);
+    }
+  });
+}
+
+export function replacePluginsSharedEnv(
   env: EnvConfig,
   newPlugins: EnvConfig['candleSetPlugins'],
   trader: Trader,
