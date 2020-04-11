@@ -264,6 +264,7 @@ Then you can use it when configuring environment (here divide close by 2 and nam
 - Trade on specific currencies
 
 The software let you deploy trader which will run in a live/simulation or backtest environment using a specific strategy.
+Live trading has been tested with binance exchange
 
 ```
 {
@@ -278,12 +279,13 @@ The software let you deploy trader which will run in a live/simulation or backte
       "quote": "USDT",
       "exchange": {
         "name": "binance",
-        // apiKeys... Not fully implemented yet
+        "apiKey": "Your public key",
+        "apiSecret": "Your secret key"
       }
 
       // Environment configuration
       "env": {
-        // Currency to watch (Not tested with multiples yet)
+        // Currency to watch
         "watchList": [
           { "base": "BTC", "quote": "USDT", "exchange": "binance" }
         ],
