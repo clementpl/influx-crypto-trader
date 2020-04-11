@@ -203,17 +203,14 @@ export class Trader {
 
       // Get generator and fetch first candles (warmup)
       const fetcher = this.env.getGenerator();
-      let data: { done: boolean; value: CandleSet | undefined } = { done: false, value: undefined };
-      let candleSet: CandleSet | undefined;
+      let data = await fetcher.next();
+      let candleSet = data.value;
 
       // Loop over data
       while (!this.shouldStop && !data.done) {
-        // Fetch data
+        candleSet = data.value;
+        await this.step(candleSet);
         data = await fetcher.next();
-        if (!data.done) {
-          candleSet = data.value as CandleSet;
-          await this.step(candleSet);
-        }
       }
 
       // Run finished
