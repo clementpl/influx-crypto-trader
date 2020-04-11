@@ -45,9 +45,15 @@ export class Exchange {
         symbol: '',
         base: '',
         quote: '',
+        baseId: '',
+        quoteId: '',
         active: true,
-        precision: { amount: 0, price: 0, cost: 0 },
+        precision: { base: 0, quote: 0, amount: 0, price: 0 },
         limits: { amount: { min: 0, max: 0 }, price: { min: 0, max: 0 } },
+        tierBased: true,
+        percentage: true,
+        taker: 0,
+        maker: 0,
         info: {},
       };
     }
