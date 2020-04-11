@@ -1,4 +1,4 @@
-import { Server } from 'hapi';
+import { Server } from '@hapi/hapi';
 import { logger } from './logger';
 import { Mongo } from '@core/Mongo/Mongo';
 import { config } from '../config/config';

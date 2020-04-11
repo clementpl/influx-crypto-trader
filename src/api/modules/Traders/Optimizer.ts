@@ -5,6 +5,7 @@ import PQueue from 'p-queue';
 import { logger, TraderWorker as TraderWorkerBase, TraderConfig } from '../../../exports';
 import { deepFind } from '../../../_core/helpers';
 import { Status, PortfolioTrade } from '@src/_core/exports';
+import { standardDevationObjects } from './fitnessHelper';
 
 interface Fitness {
   currentProfit: number;
@@ -14,10 +15,17 @@ interface Fitness {
 }
 
 class TraderWorker extends TraderWorkerBase {
+  // All fitnesses
   public fitnesses: Fitness[];
   public fitnessMean: Fitness;
   public fitnessStd: Fitness;
   public fitnessMeanRed: Fitness;
+  // Only negative fitnesses
+  public fitnessesNeg: Fitness[];
+  public fitnessNegMean: Fitness;
+  public fitnessNegStd: Fitness;
+  public fitnessNegMeanRed: Fitness;
+  // Others
   public hasRunned: boolean = false;
   public rank: number;
   [name: string]: any;
@@ -26,6 +34,7 @@ class TraderWorker extends TraderWorkerBase {
 export enum FitnessType {
   FITNESS_MEAN = 'fitnessMean',
   FITNESS_MEAN_RED = 'fitnessMeanRed',
+  FITNESS_NEG_MEAN_RED = 'fitnessNegMeanRed',
 }
 
 export interface GeneticOpts {
@@ -88,32 +97,19 @@ function randomIndiv(traderConfig: TraderConfig, opts: GeneticOpts, gen: number,
 function calculateFitnessRank(generation: TraderWorker[], fitnessType: FitnessType) {
   // Compute fitness mean/std/meanReduce for each indiv
   generation.forEach(t => {
-    // Calc sum
-    t.fitnessMean = t.fitnesses.reduce(
-      (acc, current) => {
-        Object.keys(acc).forEach(k => (acc[k] += current[k]));
-        return acc;
-      },
-      { currentProfit: 0, percentTradeWin: 0, sortinaRatio: 0 }
-    );
-    // Calc mean
-    Object.keys(t.fitnessMean).forEach(k => (t.fitnessMean[k] /= t.fitnesses.length));
-
-    // Calc Variance (val - mean) pow2
-    t.fitnessStd = t.fitnesses.reduce(
-      (acc, current) => {
-        Object.keys(acc).forEach(k => {
-          acc[k] += Math.pow(current[k] - t.fitnessMean[k], 2);
-        });
-        return acc;
-      },
-      { currentProfit: 0, percentTradeWin: 0, sortinaRatio: 0 }
-    );
-    // Calc standard deviation (=sqrt(variance))
-    Object.keys(t.fitnessStd).forEach(k => (t.fitnessStd[k] = Math.sqrt(t.fitnessStd[k])));
+    // Calc mean + standardDeviation
+    [t.fitnessMean, t.fitnessStd] = standardDevationObjects(t.fitnesses);
     // Calc mean reduite
     t.fitnessMeanRed = { currentProfit: 0, percentTradeWin: 0, sortinaRatio: 0 };
     Object.keys(t.fitnessMeanRed).forEach(k => (t.fitnessMeanRed[k] = t.fitnessMean[k] - t.fitnessStd[k]));
+
+    /* Only with fitness negative (according to currentProfit) */
+    t.fitnessesNeg = t.fitnesses.filter(f => f.currentProfit < 0);
+    // Calc mean + standardDeviation
+    [t.fitnessNegMean, t.fitnessNegStd] = standardDevationObjects(t.fitnessesNeg);
+    // Calc mean reduite with standard deviation of negative returns (environment with return < 0)
+    t.fitnessNegMeanRed = { currentProfit: 0, percentTradeWin: 0, sortinaRatio: 0 };
+    Object.keys(t.fitnessNegMeanRed).forEach(k => (t.fitnessNegMeanRed[k] = t.fitnessMean[k] - t.fitnessNegStd[k]));
   });
 
   // Compute rank
@@ -129,6 +125,8 @@ function calculateFitnessRank(generation: TraderWorker[], fitnessType: FitnessTy
       }
     });
   });
+
+  // Sort by rank
   generation = generation.sort((a, b) => a.rank - b.rank);
   // convert non suite rank [2,2,2,3,7,8,8,...] to correct rank suite [1,1,1,2,3,4,4,...]
   let lastRank: number;
@@ -142,6 +140,23 @@ function calculateFitnessRank(generation: TraderWorker[], fitnessType: FitnessTy
     }
     t.rank = newRankIdx;
   });
+  console.log('CALCULATE FITNESS RANK FINISH');
+  console.log(
+    JSON.stringify(
+      generation.map(t => ({
+        name: t.config.name,
+        rank: t.rank,
+        fitnesses: t.fitnesses,
+        fitnessMean: t.fitnessMean,
+        fitnessStd: t.fitnessStd,
+        fitnessMeanRed: t.fitnessMeanRed,
+        fitnessesNeg: t.fitnessesNeg,
+        fitnessNegMean: t.fitnessNegMean,
+        fitnessNegStd: t.fitnessNegStd,
+        fitnessNegMeanRed: t.fitnessNegMeanRed,
+      }))
+    )
+  );
 }
 
 function sumFitness(fitness: Fitness) {

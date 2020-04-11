@@ -1,4 +1,4 @@
-import { Server } from 'hapi';
+import { Server } from '@hapi/hapi';
 import { logger } from '@src/logger';
 import { routes } from './modules/routes';
 import { Traders } from './modules/Traders/Traders';
@@ -43,6 +43,9 @@ export class API {
 
       // Register plugins for lout (api documentation)
       await server.register([require('vision'), require('inert'), require('lout')]);
+
+      // Load schema validator compiler
+      server.validator(require('@hapi/joi'));
 
       // Bind routes
       routes.forEach(route => server.route(route));
