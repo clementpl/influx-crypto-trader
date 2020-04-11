@@ -5,7 +5,7 @@ export function standardDeviation(tradeHistory: PortfolioTrade[]) {
   const meanP = sumP / tradeHistory.length;
   const squaredMeanDiff = tradeHistory.reduce((sum, t) => (sum += Math.pow(t.orderProfit - meanP, 2)), 0);
 
-  // Profit standard deviation
+  // standard deviation
   const stdDev = squaredMeanDiff === 0 ? 0 : Math.sqrt(squaredMeanDiff / tradeHistory.length);
   return stdDev;
 }
